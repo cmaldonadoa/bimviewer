@@ -28,40 +28,40 @@ export default class PropertiesContainer extends React.Component {
         // Basic information folder
         tabs["Información Básica"] = {};
         tabs["Información Básica"]["IfcType"] = data.type;
-        var attributes = data[dataKey];
-        for (var attribute in attributes) {
+        let attributes = data[dataKey];
+        for (let attribute in attributes) {
           tabs["Información Básica"][attribute] = attributes[attribute];
         }
       } else if (dataKey === "properties") {
-        for (var i = 0; i < data[dataKey].length; i++) {
-          var tmpObj = data[dataKey][i];
+        for (let i = 0; i < data[dataKey].length; i++) {
+          let tmpObj = data[dataKey][i];
           if (tmpObj instanceof Array) {
             tmpObj = tmpObj[0];
           }
-          var tmpType = tmpObj["type"];
-          var tmpData = tmpObj["attributes"];
+          let tmpType = tmpObj["type"];
+          let tmpData = tmpObj["attributes"];
           if ("ID" in tmpData) {
             continue;
           }
           if ("xlink:href" in tmpData) {
-            var hrefData = this.xresponse[tmpData["xlink:href"].substring(1)];
+            let hrefData = this.xresponse[tmpData["xlink:href"].substring(1)];
             if (!hrefData) {
               continue;
             }
-            var tabName = `${hrefData.type} ${hrefData.attributes["ID"]}`;
+            let attributes = hrefData.attributes;
+            let tabName = attributes.Name ? attributes.Name : `${hrefData.type}`;
             tabs[tabName] = {};
             tabs[tabName]["IfcType"] = hrefData.type;
-            var attributes = hrefData.attributes;
-            for (var attribute in hrefData.attributes) {
+            for (let attribute in attributes) {
               tabs[tabName][attribute] = attributes[attribute];
             }
 
-            var properties = hrefData.properties;
+            let properties = hrefData.properties;
             if (properties) {
-              for (var j = 0; j < properties.length; j++) {
-                var tmpProp = properties[j];
-                var tmpPropData = tmpProp.attributes;
-                var tmpKeys = Object.keys(tmpPropData);
+              for (let j = 0; j < properties.length; j++) {
+                let tmpProp = properties[j];
+                let tmpPropData = tmpProp.attributes;
+                let tmpKeys = Object.keys(tmpPropData);
                 if (tmpKeys.length === 1) {
                   tabs[tabName][tmpProp.type] = tmpPropData[tmpKeys[0]];
                 } else {
@@ -71,10 +71,10 @@ export default class PropertiesContainer extends React.Component {
               }
             }
           } else {
-            var tabName = `${tmpType} ${tmpData["ID"]}`;
+            let tabName = `${tmpType} ${tmpData["ID"]}`;
             tabs[tabName] = {};
 
-            for (var attribute in tmpData) {
+            for (let attribute in tmpData) {
               tabs[tabName][attribute] = tmpData[attribute];
             }
           }

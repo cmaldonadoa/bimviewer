@@ -10,7 +10,6 @@ import Table from "@material-ui/core/Table";
 import TableBody from "@material-ui/core/TableBody";
 import TableCell from "@material-ui/core/TableCell";
 import TableContainer from "@material-ui/core/TableContainer";
-import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
 import Paper from "@material-ui/core/Paper";
 
@@ -22,8 +21,9 @@ function TabPanel(props) {
       component="div"
       role="tabpanel"
       hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
+      id={`properties-tabpanel-${index}`}
+      className="sidebar-tabpanel"
+      aria-labelledby={`properties-tab-${index}`}
       {...other}
     >
       {value === index && <Box p={3}>{children}</Box>}
@@ -39,8 +39,8 @@ TabPanel.propTypes = {
 
 function a11yProps(index) {
   return {
-    id: `simple-tab-${index}`,
-    "aria-controls": `simple-tabpanel-${index}`,
+    id: `properties-tab-${index}`,
+    "aria-controls": `properties-tabpanel-${index}`,
   };
 }
 
@@ -73,7 +73,7 @@ export default function EntityProperties(props) {
     );
 
     return (
-      <TableContainer className="properties-table" component={Paper}>
+      <TableContainer id="properties-table" component={Paper}>
         <Table className={classes.table} size="small">
           <TableBody>
             {rows.map((row) => (
