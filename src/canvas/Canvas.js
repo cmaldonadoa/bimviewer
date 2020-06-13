@@ -3,6 +3,8 @@ import { Viewer } from "@xeokit/xeokit-sdk/src/viewer/Viewer";
 import { GLTFLoaderPlugin } from "@xeokit/xeokit-sdk/src/plugins/GLTFLoaderPlugin/GLTFLoaderPlugin.js";
 import { NavCubePlugin } from "@xeokit/xeokit-sdk/src/plugins/NavCubePlugin/NavCubePlugin.js";
 import { TreeViewPlugin } from "@xeokit/xeokit-sdk/src/plugins/TreeViewPlugin/TreeViewPlugin.js";
+import { StoreyViewsPlugin } from "@xeokit/xeokit-sdk/src/plugins/StoreyViewsPlugin/StoreyViewsPlugin.js";
+import { math } from "@xeokit/xeokit-sdk/src/viewer/scene/math/math.js";
 
 export default class Canvas extends React.Component {
   constructor(props) {
@@ -61,6 +63,20 @@ export default class Canvas extends React.Component {
     scene.selectedMaterial.fillColor = [0, 1, 1];
 
     //------------------------------------------------------------------------------------------------------------------
+    // Load model
+    //------------------------------------------------------------------------------------------------------------------
+    const gltfLoader = new GLTFLoaderPlugin(viewer);
+
+    const model = gltfLoader.load({
+      id: "model",
+      src: "/models/IFC_Schependomlaan.gltf",
+      metaModelSrc: "/models/IFC_Schependomlaan_xeokit.json",
+      edges: true,
+    });
+
+    window.model = model;
+
+    //------------------------------------------------------------------------------------------------------------------
     // Create a NavCube
     //------------------------------------------------------------------------------------------------------------------
     new NavCubePlugin(viewer, {
@@ -75,11 +91,26 @@ export default class Canvas extends React.Component {
     });
 
     //------------------------------------------------------------------------------------------------------------------
+    // Add StoreyViewsPlugin
+    //------------------------------------------------------------------------------------------------------------------
+    const storeyViewsPlugin = new StoreyViewsPlugin(viewer);
+    storeyViewsPlugin.on(
+      "storeys",
+      () => {
+        this.storeys = storeyViewsPlugin.storeys;
+      },
+      this
+    );
+
+    this.storeyViewsPlugin = storeyViewsPlugin;
+
+    //------------------------------------------------------------------------------------------------------------------
     // Mouse over entities to highlight them
     //------------------------------------------------------------------------------------------------------------------
     var lastEntity = null;
 
-    scene.input.on("mousemove", function(coords) {
+    /*
+    scene.input.on("mousemove", (coords) => {
       var hit = viewer.scene.pick({
         canvasPos: coords,
       });
@@ -99,14 +130,43 @@ export default class Canvas extends React.Component {
           lastEntity = null;
         }
       }
-    });
+    });*/ 
+ 
+
+    scene.input.on(
+      "mousedown",
+      (coords) => {
+        if (scene.input.mouseDownRight && !this.rightClicked) {
+          this.rightClicked = true;
+          var hit = scene.pick({
+            canvasPos: coords,
+          });
+
+          if (hit) {
+            var entity = hit.entity;
+            var objectId = entity.id;
+
+            if (entity.selected) {
+              this.selected = [];
+            } else {
+              this.selected = [objectId];
+            }
+
+            scene.setObjectsSelected(scene.objectIds, false);
+            scene.setObjectsSelected(this.selected, true);
+            this.rightClicked = false;
+          }
+        }
+      },
+      this
+    );
 
     //------------------------------------------------------------------------------------------------------------------
     // Click an object to show IFC data and the tree node
     //------------------------------------------------------------------------------------------------------------------
     scene.input.on(
       "mouseclicked",
-      function(coords) {
+      (coords) => {
         var hit = scene.pick({
           canvasPos: coords,
         });
@@ -163,17 +223,8 @@ export default class Canvas extends React.Component {
       //----------------------------------------------------------------------------------------------------------------------
       // Load a model and fit it to view
       //----------------------------------------------------------------------------------------------------------------------
-      const gltfLoader = new GLTFLoaderPlugin(window.viewer);
-
-      const model = gltfLoader.load({
-        id: "model",
-        src: "/models/IFC_Schependomlaan.gltf",
-        metaModelSrc: "/models/IFC_Schependomlaan_xeokit.json",
-        edges: true,
-      });
-
-      model.on("loaded", () => {
-        this.treeView.addModel(model.id);
+      window.model.on("loaded", () => {
+        this.treeView.addModel(window.model.id);
         this.loading = false;
         this.signalMount();
       });
@@ -315,6 +366,256 @@ export default class Canvas extends React.Component {
     const scene = viewer.scene;
     viewer.cameraFlight.flyTo({
       aabb: scene.getAABB(id),
+    });
+  }
+
+  //----------------------------------------------------------------------------------------------------------------------
+  // Tools tab handlers
+  //----------------------------------------------------------------------------------------------------------------------
+
+  setProjection(mode) {
+    const viewer = window.viewer;
+    const camera = viewer.camera;
+    camera.projection = mode;
+  }
+
+  setFirstPerson(mode) {
+    const viewer = window.viewer;
+    const cameraControl = viewer.cameraControl;
+    cameraControl.firstPerson = mode;
+  }
+
+  getStoreys() {
+    var storeys = [];
+    for (let storey in this.storeys) {
+      storeys.push(storey);
+    }
+    return storeys;
+  }
+
+  setStorey(value) {
+    const viewer = window.viewer;
+
+    const oldChild = document.getElementById("storey-img");
+    const storeyMapDiv = document.getElementById("storey-map");
+    if (oldChild) {
+      const oldPointer = document.getElementById("plan-pointer");
+      document.body.removeChild(oldPointer);
+      storeyMapDiv.removeChild(oldChild);
+    }
+
+    if (value === "") {
+      const cameraControl = viewer.cameraControl;
+      const cameraFlight = viewer.cameraFlight;
+      const scene = viewer.scene;
+      scene.setObjectsVisible(scene.objectIds, true);
+      cameraControl.navMode = "orbit"; // Disable rotation
+      cameraFlight.flyTo({
+        eye: [-2.56, 8.38, 8.27],
+        look: [13.44, 3.31, -14.83],
+        up: [0.1, 0.98, -0.14],
+        projection: "perspective",
+      });
+      return;
+    }
+
+    this.storeyViewsPlugin.showStoreyObjects(value, {
+      hideOthers: true,
+    });
+
+    this.storeyViewsPlugin.gotoStoreyCamera(value, {
+      projection: "ortho", // Orthographic projection
+      duration: 0.8, // 2.5 second transition
+      done: () => {
+        // Create 2D view
+        viewer.cameraControl.navMode = "planView"; // Disable rotation
+        const storeyMap = this.storeyViewsPlugin.createStoreyMap(value, {
+          width: 300,
+          format: "png",
+          useObjectStates: true,
+        });
+
+        const img = document.createElement("img");
+
+        img.id = "storey-img";
+        img.src = storeyMap.imageData;
+        img.style.width = storeyMap.width + "px";
+        img.style.height = storeyMap.height + "px";
+
+        const worldPos = math.vec3();
+
+        // Fly on minimap click
+        img.onclick = (e) => {
+          const imagePos = [e.offsetX, e.offsetY];
+          const pickResult = this.storeyViewsPlugin.pickStoreyMap(
+            storeyMap,
+            imagePos,
+            {
+              pickSurface: true,
+            }
+          );
+          if (pickResult) {
+            worldPos.set(pickResult.worldPos);
+
+            // Set camera vertical position at the mid point of the storey's vertical
+            // extents - note how this is adapts to whichever of the X, Y or Z axis is
+            // designated the World's "up" axis
+
+            const camera = viewer.scene.camera;
+            const idx = camera.xUp ? 0 : camera.yUp ? 1 : 2; // Find the right axis for "up"
+            const storey = this.storeyViewsPlugin.storeys[storeyMap.storeyId];
+            worldPos[idx] = (storey.aabb[idx] + storey.aabb[3 + idx]) / 2;
+
+            viewer.cameraFlight.flyTo(
+              {
+                eye: worldPos,
+                up: viewer.camera.worldUp,
+                look: math.addVec3(worldPos, viewer.camera.worldForward, []),
+                projection: "perspective",
+                duration: 1.5,
+              },
+              () => {
+                viewer.cameraControl.navMode = "firstPerson";
+              }
+            );
+          } else {
+            this.storeyViewsPlugin.gotoStoreyCamera(value, {
+              projection: "ortho",
+              duration: 1.5,
+              done: () => {
+                viewer.cameraControl.navMode = "planView";
+              },
+            });
+          }
+        };
+
+        const canStandOnTypes = {
+          IfcSlab: true,
+          IfcStair: true,
+          IfcFloor: true,
+          IfcFooting: true,
+        };
+        img.onmouseenter = (e) => {
+          img.style.cursor = "default";
+        };
+
+        img.onmousemove = (e) => {
+          img.style.cursor = "default";
+
+          const imagePos = [e.offsetX, e.offsetY];
+
+          const pickResult = this.storeyViewsPlugin.pickStoreyMap(
+            storeyMap,
+            imagePos,
+            {}
+          );
+
+          if (pickResult) {
+            const entity = pickResult.entity;
+            const metaObject = viewer.metaScene.metaObjects[entity.id];
+
+            if (metaObject) {
+              if (canStandOnTypes[metaObject.type]) {
+                img.style.cursor = "pointer";
+              }
+            }
+          }
+        };
+
+        img.onmouseleave = (e) => {
+          img.style.cursor = "default";
+        };
+
+        storeyMapDiv.appendChild(img);
+
+        // Minimap guide
+        const pointer = document.createElement("div");
+        pointer.id = "plan-pointer";
+        pointer.style.width = "60px";
+        pointer.style.height = "60px";
+        pointer.style.position = "absolute";
+        pointer.style["z-index"] = 100000;
+        pointer.style.left = "0px";
+        pointer.style.top = "0px";
+        pointer.style.cursor = "none";
+        pointer.style["pointer-events"] = "none";
+        pointer.style.transform = "rotate(0deg)";
+        pointer.style.visibility = "hidden";
+        document.body.appendChild(pointer);
+
+        const imagePos = math.vec2();
+        const worldDir = math.vec3();
+        const imageDir = math.vec2();
+
+        const updatePointer = () => {
+          const eye = viewer.camera.eye;
+          const storeyId = this.storeyViewsPlugin.getStoreyContainingWorldPos(
+            eye
+          );
+          if (!storeyId) {
+            hidePointer();
+            return;
+          }
+          const inBounds = this.storeyViewsPlugin.worldPosToStoreyMap(
+            storeyMap,
+            eye,
+            imagePos
+          );
+          if (!inBounds) {
+            hidePointer();
+            return;
+          }
+          var offset = getPosition(img);
+          imagePos[0] += offset.x;
+          imagePos[1] += offset.y;
+
+          this.storeyViewsPlugin.worldDirToStoreyMap(
+            storeyMap,
+            worldDir,
+            imageDir
+          );
+
+          showPointer(imagePos, imageDir);
+        };
+
+        viewer.camera.on("viewMatrix", updatePointer);
+        viewer.scene.canvas.on("boundary", updatePointer);
+
+        function getPosition(el) {
+          var xPos = 0;
+          var yPos = 0;
+          while (el) {
+            if (el.tagName === "BODY") {
+              // deal with browser quirks with body/window/document and page scroll
+              var xScroll =
+                el.scrollLeft || document.documentElement.scrollLeft;
+              var yScroll = el.scrollTop || document.documentElement.scrollTop;
+              xPos += el.offsetLeft - xScroll + el.clientLeft;
+              yPos += el.offsetTop - yScroll + el.clientTop;
+            } else {
+              // for all other non-BODY elements
+              xPos += el.offsetLeft - el.scrollLeft + el.clientLeft;
+              yPos += el.offsetTop - el.scrollTop + el.clientTop;
+            }
+            el = el.offsetParent;
+          }
+          return { x: xPos, y: yPos };
+        }
+
+        function hidePointer() {
+          pointer.style.visibility = "hidden";
+        }
+
+        function showPointer(imagePos, imageDir) {
+          const angleRad = Math.atan2(imageDir[0], imageDir[1]);
+          const angleDeg = Math.floor((180 * angleRad) / Math.PI);
+
+          pointer.style.left = imagePos[0] - 30 + "px";
+          pointer.style.top = imagePos[1] - 30 + "px";
+          pointer.style.transform = "rotate(" + -(angleDeg - 45) + "deg)";
+          pointer.style.visibility = "visible";
+        }
+      },
     });
   }
 }

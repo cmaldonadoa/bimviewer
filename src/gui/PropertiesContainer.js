@@ -6,10 +6,7 @@ export default class PropertiesContainer extends React.Component {
     super(props);
     this.state = { metadata: {} };
     this.entity = props.entity;
-    var xhttp = new XMLHttpRequest();
-    xhttp.open("GET", `/models/IFC_Schependomlaan_id.json`, false);
-    xhttp.send();
-    this.xresponse = JSON.parse(xhttp.response);
+    this.xresponse = props.metadata;
   }
 
   componentDidUpdate() {

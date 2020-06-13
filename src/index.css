@@ -65,6 +65,31 @@ code {
   z-index: 200000;
 }
 
+
+#storey-map {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  margin: 14px;
+  z-index: 1;
+  cursor: pointer;
+}
+
+
+#plan-pointer {
+  color: #000000;
+  line-height: 1.8;
+  text-align: center;
+  font-family: "monospace";
+  font-weight: bold;
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  background-image: url(images/storeyMapCamera.png);
+  background-repeat: no-repeat;
+  background-size: 60px 60px;
+}
+
 /* ----------------------------------------------------------------------------------------------------------*/
 /* Sidebar
 /* ----------------------------------------------------------------------------------------------------------*/

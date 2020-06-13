@@ -15,6 +15,7 @@ export default class Viewer extends React.Component {
       x: 0,
       y: 0,
     };
+
     this.canvas = new Canvas({
       updateEntity: (id) => this.updateEntity(id),
       openTreeContextMenu: (node, x, y, element, options) =>
@@ -22,38 +23,46 @@ export default class Viewer extends React.Component {
       closeTreeContextMenu: () => this.closeTreeContextMenu(),
       signalMount: () => this.signalMount(),
     });
+    
+    var xhttp = new XMLHttpRequest();
+    xhttp.open("GET", `/models/IFC_Schependomlaan_id.json`, false);
+    xhttp.send();
+    this.xresponse = JSON.parse(xhttp.response);
   }
 
+  // Show Metadata
   updateEntity(id) {
-    this.setState({ 
-      currentEntity: id 
+    this.setState({
+      currentEntity: id,
     });
   }
 
+  // Load tree view plugin
   mountTree() {
     this.canvas.mountTree();
   }
 
   signalMount() {
     this.setState({
-      mounting: false
-    })
+      mounting: false,
+    });
   }
 
   unmountTree() {
     this.canvas.unmountTree();
     this.setState({
-      mounting: true
-    })
+      mounting: true,
+    });
   }
 
+  // Tree view context menu
   openTreeContextMenu(node, x, y, element, options) {
     this.setState({
       openTreeContextMenu: element,
       treeNode: node,
       x: x,
       y: y,
-      treeContextOptions: options
+      treeContextOptions: options,
     });
   }
 
@@ -80,7 +89,24 @@ export default class Viewer extends React.Component {
   }
 
   isolate(node) {
-    console.error("NOT IMPLEMENTED")
+    console.error("NOT IMPLEMENTED");
+  }
+
+  // Tools tab
+  setProjection(mode) {
+    this.canvas.setProjection(mode);
+  }
+
+  setFirstPerson(mode) {
+    this.canvas.setFirstPerson(mode);
+  }
+
+  getStoreys() {
+    return this.canvas.getStoreys();
+  }
+
+  setStorey(value) {
+    this.canvas.setStorey(value)
   }
 
   render() {
@@ -109,10 +135,20 @@ export default class Viewer extends React.Component {
         />
         <Sidebar
           loading={this.state.mounting}
+          metadata={this.xresponse}
           onClick={() => this.closeTreeContextMenu()}
-          mountTree={() => this.mountTree()}
-          unmountTree={() => this.unmountTree()}
-          currentEntity={this.state.currentEntity}
+          tree={{
+            mount: () => this.mountTree(),
+            unmount: () => this.unmountTree(),
+            currentEntity: this.state.currentEntity
+
+          }}
+          tools={{
+            getStoreys: () => this.getStoreys(),
+            setStorey: (value) => this.setStorey(value),
+            setProjection: (mode) => this.setProjection(mode),
+            setFirstPerson: (mode) => this.setFirstPerson(mode)
+          }}
         />
       </React.Fragment>
     );
