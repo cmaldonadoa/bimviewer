@@ -2,6 +2,7 @@ import React from "react";
 import Sidebar from "./gui/Sidebar";
 import TreeContextMenu from "./gui/TreeContextMenu";
 import Canvas from "./canvas/Canvas";
+import CanvasContextMenu from "./gui/CanvasContextMenu";
 
 export default class Viewer extends React.Component {
   constructor(props) {
@@ -11,23 +12,29 @@ export default class Viewer extends React.Component {
       currentEntity: null,
       openTreeContextMenu: null,
       treeContextId: null,
-      treeContextOptions: {},
+      treeContextState: {},
+      openCanvasContextMenu: null,
+      canvasContextState: {},
       x: 0,
       y: 0,
     };
 
-    this.canvas = new Canvas({
-      updateEntity: (id) => this.updateEntity(id),
-      openTreeContextMenu: (node, x, y, element, options) =>
-        this.openTreeContextMenu(node, x, y, element, options),
-      closeTreeContextMenu: () => this.closeTreeContextMenu(),
-      signalMount: () => this.signalMount(),
-    });
-    
     var xhttp = new XMLHttpRequest();
     xhttp.open("GET", `/models/IFC_Schependomlaan_id.json`, false);
     xhttp.send();
     this.xresponse = JSON.parse(xhttp.response);
+
+    this.canvas = new Canvas({
+      allIds: Object.keys(this.xresponse),
+      updateEntity: (id) => this.updateEntity(id),
+      openTreeContextMenu: (node, x, y, element, state) =>
+        this.openTreeContextMenu(node, x, y, element, state),
+      closeTreeContextMenu: () => this.closeTreeContextMenu(),
+      openCanvasContextMenu: (x, y, element, state) =>
+        this.openCanvasContextMenu(x, y, element, state),
+      closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
+      signalMount: () => this.signalMount(),
+    });
   }
 
   // Show Metadata
@@ -56,13 +63,13 @@ export default class Viewer extends React.Component {
   }
 
   // Tree view context menu
-  openTreeContextMenu(node, x, y, element, options) {
+  openTreeContextMenu(node, x, y, element, state) {
     this.setState({
       openTreeContextMenu: element,
       treeNode: node,
       x: x,
       y: y,
-      treeContextOptions: options,
+      treeContextState: state,
     });
   }
 
@@ -72,16 +79,17 @@ export default class Viewer extends React.Component {
     });
   }
 
-  toggleVisibility(node) {
-    this.canvas.toggleVisibility(node);
+  toggleVisibility(node, flag) {
+    this.canvas.toggleVisibility(node, flag);
   }
 
-  toggleXray(node) {
-    this.canvas.toggleXray(node);
+  toggleXray(node, flag) {
+    console.log(node)
+    this.canvas.toggleXray(node, flag);
   }
 
-  toggleSelect(node) {
-    this.canvas.toggleSelect(node);
+  toggleSelect(node, flag) {
+    this.canvas.toggleSelect(node, flag);
   }
 
   lookAt(id) {
@@ -106,12 +114,51 @@ export default class Viewer extends React.Component {
   }
 
   setStorey(value) {
-    this.canvas.setStorey(value)
+    this.canvas.setStorey(value);
+  }
+
+  // Canvas context menu
+  openCanvasContextMenu(x, y, element, state) {
+    this.setState({
+      openCanvasContextMenu: element,
+      entity: element,
+      x: x + 430,
+      y: y,
+      canvasContextState: state,
+    });
+  }
+
+  closeCanvasContextMenu() {
+    this.setState({
+      openCanvasContextMenu: null,
+    });
   }
 
   render() {
     return (
       <React.Fragment>
+        <CanvasContextMenu
+          entity={this.state.openCanvasContextMenu}
+          open={this.state.openCanvasContextMenu}
+          close={() => this.closeCanvasContextMenu()}
+          reopen={(target) =>
+            this.openCanvasContextMenu(
+              target.offsetLeft,
+              target.offsetTop,
+              target
+            )
+          }
+          state={this.state.canvasContextState}
+          x={this.state.x}
+          y={this.state.y}
+          callbacks={{
+            toggleVisibility: (node) => this.toggleVisibility(node, false),
+            toggleXray: (node) => this.toggleXray(node, false),
+            toggleSelect: (node) => this.toggleSelect(node, false),
+            lookAt: (id) => this.lookAt(id),
+            isolate: (node) => this.isolate(node, false),
+          }}
+        />
         <TreeContextMenu
           node={this.state.treeNode}
           open={this.state.openTreeContextMenu}
@@ -122,15 +169,15 @@ export default class Viewer extends React.Component {
               target
             )
           }
-          options={this.state.treeContextOptions}
+          state={this.state.treeContextState}
           x={this.state.x}
           y={this.state.y}
           callbacks={{
-            toggleVisibility: (node) => this.toggleVisibility(node),
-            toggleXray: (node) => this.toggleXray(node),
-            toggleSelect: (node) => this.toggleSelect(node),
+            toggleVisibility: (node) => this.toggleVisibility(node, true),
+            toggleXray: (node) => this.toggleXray(node, true),
+            toggleSelect: (node) => this.toggleSelect(node, true),
             lookAt: (id) => this.lookAt(id),
-            isolate: (node) => this.isolate(node),
+            isolate: (node) => this.isolate(node, true),
           }}
         />
         <Sidebar
@@ -140,14 +187,13 @@ export default class Viewer extends React.Component {
           tree={{
             mount: () => this.mountTree(),
             unmount: () => this.unmountTree(),
-            currentEntity: this.state.currentEntity
-
+            currentEntity: this.state.currentEntity,
           }}
           tools={{
             getStoreys: () => this.getStoreys(),
             setStorey: (value) => this.setStorey(value),
             setProjection: (mode) => this.setProjection(mode),
-            setFirstPerson: (mode) => this.setFirstPerson(mode)
+            setFirstPerson: (mode) => this.setFirstPerson(mode),
           }}
         />
       </React.Fragment>

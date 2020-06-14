@@ -34,7 +34,6 @@ export default function TreeContextMenu(props) {
       onContextMenu={(e) => {
         e.preventDefault();
         handleClose();
-        props.reopen(e.currentTarget);
       }}
       onClick={(e) => handleClose()}
     >
@@ -42,7 +41,7 @@ export default function TreeContextMenu(props) {
         Mirar
       </MenuItem>
       <MenuItem onClick={(e) => props.callbacks.toggleVisibility(props.node)}>
-        {props.options.visible ? (
+        {props.state.visible ? (
           <span>
             <BsEyeSlashFill /> Ocultar
           </span>
@@ -53,7 +52,7 @@ export default function TreeContextMenu(props) {
         )}
       </MenuItem>
       <MenuItem onClick={(e) => props.callbacks.toggleXray(props.node)}>
-        {props.options.xrayed ? (
+        {props.state.xrayed ? (
           <span>
             <GiCube /> Definir opaco
           </span>
@@ -64,7 +63,7 @@ export default function TreeContextMenu(props) {
         )}
       </MenuItem>
       <MenuItem onClick={(e) => props.callbacks.toggleSelect(props.node)}>
-        {props.options.selected ? (
+        {props.state.selected ? (
           <span>
             <CheckBoxIcon /> Deseleccionar
           </span>
