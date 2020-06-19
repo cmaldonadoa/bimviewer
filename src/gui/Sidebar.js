@@ -20,7 +20,6 @@ function TabPanel(props) {
       hidden={value !== index}
       id={`sidebar-tabpanel-${index}`}
       className="sidebar-tabpanel"
-      aria-labelledby={`sidebar-tab-${index}`}
       {...other}
     >
       {value === index && <Box p={3}>{children}</Box>}
@@ -37,7 +36,6 @@ TabPanel.propTypes = {
 function a11yProps(index) {
   return {
     id: `sidebar-tab-${index}`,
-    "aria-controls": `sidebar-tabpanel-${index}`,
   };
 }
 
@@ -46,6 +44,10 @@ const useStyles = makeStyles((theme) => ({
     flexGrow: 1,
     backgroundColor: theme.palette.background.paper,
     padding: 0,
+  },
+  placeholder: {
+    paddingLeft: "10px",
+    paddingRight: "15px",
   },
 }));
 
@@ -92,16 +94,15 @@ export default function Sidebar(props) {
       <TabPanel value={value} index={0}>
         <div id="tree-container">
           <div
+            className={classes.placeholder}
             style={{
               display: props.loading ? "block" : "none",
-              paddingLeft: "10px",
-              paddingRight: "15px",
             }}
           >
-            <Skeleton className="skeleton-tree" style={{ opacity: "1" }} />
-            <Skeleton className="skeleton-tree" style={{ opacity: "0.75" }} />
-            <Skeleton className="skeleton-tree" style={{ opacity: "0.5" }} />
-            <Skeleton className="skeleton-tree" style={{ opacity: "0.25" }} />
+            <Skeleton className="skeleton-tree" style={{ opacity: "1 !important" }} />
+            <Skeleton className="skeleton-tree" style={{ opacity: "0.75 !important" }} />
+            <Skeleton className="skeleton-tree" style={{ opacity: "0.5 !important" }} />
+            <Skeleton className="skeleton-tree" style={{ opacity: "0.25 !important" }} />
           </div>
         </div>
         <PropertiesContainer entity={entity} metadata={props.metadata} />
@@ -112,8 +113,12 @@ export default function Sidebar(props) {
             storeys={storeys}
             setStorey={props.tools.setStorey}
             setProjection={props.tools.setProjection}
-            toggleMinimap={props.tools.toggleMinimap}
+            setCameraMode={props.tools.setCameraMode}
             toggleFirstPerson={props.tools.setFirstPerson}
+            createSectionPlane={props.tools.createSectionPlane}
+            fitModel={props.tools.fitModel}
+            measureDistance={props.tools.measureDistance}
+            createAnnotations={props.tools.createAnnotations}
           />
         </div>
       </TabPanel>

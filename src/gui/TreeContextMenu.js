@@ -16,7 +16,7 @@ export default function TreeContextMenu(props) {
   }, [props, props.open]);
 
   const handleClose = () => {
-    setAnchorEl(null);
+    props.close();
   };
 
   return (

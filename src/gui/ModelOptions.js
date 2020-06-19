@@ -26,16 +26,15 @@ const useStyles = makeStyles((theme) => ({
 
 export default function ModelOptions(props) {
   const classes = useStyles();
-  const [viewAlignment, setViewAlignment] = React.useState("perspective");
-  const [navigationAlignment, setNavigationAlignment] = React.useState("orbit");
+  const [view, setView] = React.useState("perspective");
+  const [control, setControl] = React.useState("orbit");
   const [storey, setStorey] = React.useState("");
   const [fpState, setFpState] = React.useState(false);
-  const [minimapState, setMinimapState] = React.useState(true);
 
   const handleStoreyChange = (event) => {
     let newStorey = event.target.value;
     setStorey(newStorey);
-    props.setStorey(newStorey)
+    props.setStorey(newStorey);
   };
 
   const handleFpChange = (event) => {
@@ -43,40 +42,34 @@ export default function ModelOptions(props) {
     props.toggleFirstPerson(!fpState);
   };
 
-  const handleMinimapChange = (event) => {
-    setMinimapState(!fpState);
+  const handleViewChange = (event, newView) => {
+    if (newView) {
+      setView(newView);
+      props.setProjection(newView);
+    }
   };
 
-  const handleViewAlignment = (event, newAlignment) => {
-    setViewAlignment(newAlignment);
-    props.setProjection(newAlignment);
-  };
-
-  const handleNavigationAlignment = (event, newAlignment) => {
-    setNavigationAlignment(newAlignment);
+  const handleControlChange = (event, newControl) => {
+    if (newControl) {
+      setControl(newControl);
+      props.setCameraMode(newControl);
+    }
   };
 
   return (
     <div className={classes.root}>
-      <List component="nav" aria-label="model options">
+      <List component="nav">
         <ListItem>
-          <ListItemText primary="Navegación" />
+          <ListItemText primary="Control" />
           <ListItemIcon>
             <ToggleButtonGroup
-              value={navigationAlignment}
+              value={control}
               exclusive
-              onChange={handleNavigationAlignment}
-              aria-label="text alignment"
+              onChange={handleControlChange}
             >
-              <ToggleButton value="orbit" aria-label="left aligned">
-                Órbita
-              </ToggleButton>
-              <ToggleButton value="pan" aria-label="center aligned">
-                Paneo
-              </ToggleButton>
-              <ToggleButton value="zoom" aria-label="right aligned">
-                Zoom
-              </ToggleButton>
+              <ToggleButton value="orbit">Órbita</ToggleButton>
+              <ToggleButton value="pan">Paneo</ToggleButton>
+              <ToggleButton value="zoom">Zoom</ToggleButton>
             </ToggleButtonGroup>
           </ListItemIcon>
         </ListItem>
@@ -85,39 +78,19 @@ export default function ModelOptions(props) {
           <ListItemText primary="Vista" />
           <ListItemIcon>
             <ToggleButtonGroup
-              value={viewAlignment}
+              value={view}
               exclusive
-              onChange={handleViewAlignment}
-              aria-label="text alignment"
+              onChange={handleViewChange}
             >
-              <ToggleButton value="perspective" aria-label="left aligned">
-                Perspectiva
-              </ToggleButton>
-              <ToggleButton value="ortho" aria-label="right aligned">
-                Ortogonal
-              </ToggleButton>
+              <ToggleButton value="perspective">Perspectiva</ToggleButton>
+              <ToggleButton value="ortho">Ortogonal</ToggleButton>
             </ToggleButtonGroup>
           </ListItemIcon>
         </ListItem>
 
         <ListItem>
-          <ListItemText primary="Minimapa" />
-          <Switch
-            checked={minimapState}
-            onChange={handleMinimapChange}
-            color="primary"
-            inputProps={{ "aria-label": "primary checkbox" }}
-          />
-        </ListItem>
-
-        <ListItem>
           <ListItemText primary="Primera Persona" />
-          <Switch
-            checked={fpState}
-            onChange={handleFpChange}
-            color="primary"
-            inputProps={{ "aria-label": "primary checkbox" }}
-          />
+          <Switch checked={fpState} onChange={handleFpChange} color="primary" />
         </ListItem>
 
         <Divider />
@@ -145,19 +118,31 @@ export default function ModelOptions(props) {
         </ListItem>
 
         <ListItem button>
-          <ListItemText primary="Añadir anotación" />
+          <ListItemText
+            primary="Añadir anotación"
+            onClick={() => props.createAnnotations()}
+          />
         </ListItem>
 
         <ListItem button>
-          <ListItemText primary="Crear plano de sección" />
+          <ListItemText
+            primary="Crear plano de sección"
+            onClick={() => props.createSectionPlane()}
+          />
         </ListItem>
 
         <ListItem button>
-          <ListItemText primary="Medir" />
+          <ListItemText
+            primary="Medir"
+            onClick={() => props.measureDistance()}
+          />
         </ListItem>
 
         <ListItem button>
-          <ListItemText primary="Ajustar a la pantalla" />
+          <ListItemText
+            primary="Ajustar a la pantalla"
+            onClick={() => props.fitModel()}
+          />
         </ListItem>
 
         <ListItem button>

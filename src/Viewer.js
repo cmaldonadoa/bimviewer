@@ -37,14 +37,18 @@ export default class Viewer extends React.Component {
     });
   }
 
-  // Show Metadata
+  //------------------------------------------------------------------------------------------------------------------
+  // Show metadata
+  //------------------------------------------------------------------------------------------------------------------
   updateEntity(id) {
     this.setState({
       currentEntity: id,
     });
   }
 
-  // Load tree view plugin
+  //------------------------------------------------------------------------------------------------------------------
+  // Load tree view
+  //------------------------------------------------------------------------------------------------------------------
   mountTree() {
     this.canvas.mountTree();
   }
@@ -62,7 +66,9 @@ export default class Viewer extends React.Component {
     });
   }
 
-  // Tree view context menu
+  //------------------------------------------------------------------------------------------------------------------
+  // Tree context menu
+  //------------------------------------------------------------------------------------------------------------------
   openTreeContextMenu(node, x, y, element, state) {
     this.setState({
       openTreeContextMenu: element,
@@ -76,6 +82,8 @@ export default class Viewer extends React.Component {
   closeTreeContextMenu() {
     this.setState({
       openTreeContextMenu: null,
+      treeNode: null,
+      treeContextState: {},
     });
   }
 
@@ -84,7 +92,7 @@ export default class Viewer extends React.Component {
   }
 
   toggleXray(node, flag) {
-    console.log(node)
+    console.log(node);
     this.canvas.toggleXray(node, flag);
   }
 
@@ -100,7 +108,28 @@ export default class Viewer extends React.Component {
     console.error("NOT IMPLEMENTED");
   }
 
+  //------------------------------------------------------------------------------------------------------------------
+  // Canvas context menu
+  //------------------------------------------------------------------------------------------------------------------
+  openCanvasContextMenu(x, y, element, state) {
+    this.setState({
+      openCanvasContextMenu: element,
+      entity: element,
+      x: x + 430,
+      y: y,
+      canvasContextState: state,
+    });
+  }
+
+  closeCanvasContextMenu() {
+    this.setState({
+      openCanvasContextMenu: null,
+    });
+  }
+
+  //------------------------------------------------------------------------------------------------------------------
   // Tools tab
+  //------------------------------------------------------------------------------------------------------------------
   setProjection(mode) {
     this.canvas.setProjection(mode);
   }
@@ -117,21 +146,24 @@ export default class Viewer extends React.Component {
     this.canvas.setStorey(value);
   }
 
-  // Canvas context menu
-  openCanvasContextMenu(x, y, element, state) {
-    this.setState({
-      openCanvasContextMenu: element,
-      entity: element,
-      x: x + 430,
-      y: y,
-      canvasContextState: state,
-    });
+  setCameraMode(mode) {
+    this.canvas.setCameraMode(mode);
   }
 
-  closeCanvasContextMenu() {
-    this.setState({
-      openCanvasContextMenu: null,
-    });
+  createSectionPlane() {
+    this.canvas.createSectionPlane();
+  }
+
+  fitModel() {
+    this.canvas.fitModel();
+  }
+
+  measureDistance() {
+    this.canvas.measureDistance();
+  }
+
+  createAnnotations() {
+    this.canvas.createAnnotations();
   }
 
   render() {
@@ -162,6 +194,7 @@ export default class Viewer extends React.Component {
         <TreeContextMenu
           node={this.state.treeNode}
           open={this.state.openTreeContextMenu}
+          close={() => this.closeTreeContextMenu()}
           reopen={(target) =>
             this.openTreeContextMenu(
               target.offsetLeft,
@@ -194,6 +227,11 @@ export default class Viewer extends React.Component {
             setStorey: (value) => this.setStorey(value),
             setProjection: (mode) => this.setProjection(mode),
             setFirstPerson: (mode) => this.setFirstPerson(mode),
+            setCameraMode: (mode) => this.setCameraMode(mode),
+            createSectionPlane: () => this.createSectionPlane(),
+            fitModel: () => this.fitModel(),
+            measureDistance: () => this.measureDistance(),
+            createAnnotations: () => this.createAnnotations()
           }}
         />
       </React.Fragment>

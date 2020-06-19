@@ -13,10 +13,13 @@ body {
   );
   overscroll-behavior: contain; /* Prevent refreshing when pulling down (mobile)*/
   overflow-y: hidden;
-  width: 100vw !important;
+  width: calc(100vw - 430px) !important;
   height: 100vh !important;
-  min-width: 100vw !important;
+  min-width: calc(100vw - 430px) !important;
+  max-width: calc(100vw - 430px) !important;
   min-height: 100vh !important;
+  left: 430px;
+  position: relative;
 }
 
 body,
@@ -33,7 +36,7 @@ code {
   max-width: 100vw;
   width: 430px;
   height: 100vh;
-  position: absolute;
+  position: fixed;
   left: 0;
   top: 0;
 }
@@ -42,7 +45,7 @@ code {
 /* Canvas
 /* ----------------------------------------------------------------------------------------------------------*/
 #canvas-container {
-  position: absolute;
+  position: fixed;
   max-width: 100vw;
   width: calc(100vw - 430px); /* 100vw - root width*/
   height: 100vh;
@@ -65,7 +68,6 @@ code {
   z-index: 200000;
 }
 
-
 #storey-map {
   position: fixed;
   right: 0;
@@ -73,8 +75,8 @@ code {
   margin: 14px;
   z-index: 1;
   cursor: pointer;
+  z-index: 200001;
 }
-
 
 #plan-pointer {
   color: #000000;
@@ -82,12 +84,23 @@ code {
   text-align: center;
   font-family: "monospace";
   font-weight: bold;
-  position: absolute;
+  position: fixed !important;
   width: 60px;
   height: 60px;
   background-image: url(images/storeyMapCamera.png);
   background-repeat: no-repeat;
   background-size: 60px 60px;
+  z-index: 200002 !important;
+}
+
+#planes-overview {
+  position: absolute;
+  width: 250px;
+  height: 250px;
+  right: 0;
+  bottom: 0;
+  margin: 14px;
+  z-index: 200000;
 }
 
 /* ----------------------------------------------------------------------------------------------------------*/
@@ -102,13 +115,11 @@ div.sidebar-tabpanel > * {
 /* TreeViewPlugin
 /* ----------------------------------------------------------------------------------------------------------*/
 
-
 /* Placeholder*/
 .skeleton-tree {
   margin-top: 10px !important;
   margin-bottom: 10px !important;
 }
-
 
 /* Tree */
 #tree-container {
@@ -144,7 +155,7 @@ div.sidebar-tabpanel > * {
   text-align: center;
   text-decoration: none;
   width: 0.6rem;
-  font-size: 0px !important;  
+  font-size: 0px !important;
   content: "";
   border: solid black;
   border-width: 0 3px 3px 0;
@@ -189,8 +200,7 @@ div.sidebar-tabpanel > * {
   visibility: hidden;
 }
 
-
-#tree-container ul li:not(:last-child)::before {  
+#tree-container ul li:not(:last-child)::before {
   content: "";
   border-left: 1px dashed rgba(0, 0, 0, 0.4);
   display: block;
@@ -208,7 +218,7 @@ div.sidebar-tabpanel > * {
   left: -34px;
 }
 
-#tree-container ul li:last-child::before {  
+#tree-container ul li:last-child::before {
   content: "";
   border-left: 1px dashed rgba(0, 0, 0, 0.4);
   display: block;
@@ -242,9 +252,10 @@ div.sidebar-tabpanel > * {
   visibility: hidden;
 }
 
+/* Context menu*/
 #tree-context-menu div[class^="Mui"] {
-  top: 0 !important; 
-  left: 0 !important;
+  top: 0 !important;
+  left: -430px !important;
   pointer-events: visible !important;
 }
 
@@ -390,4 +401,81 @@ button[id^="properties-tab-"] {
 
 #toast-container .react-reveal {
   margin: 0.25rem;
+}
+
+/* ----------------------------------------------------------------------------------------------------------*/
+/* Annotations
+/* ----------------------------------------------------------------------------------------------------------*/
+.annotation-marker {
+  color: #ffffff;
+  text-align: center;
+  font-weight: bold;
+  position: absolute;
+  width: 25px;
+  height: 25px;
+  border-radius: 15px;
+  border: 2px solid #ffffff;
+  background: black;
+  visibility: hidden;
+  z-index: 0;
+}
+
+.annotation-label {
+  position: absolute;
+  max-width: 250px;
+  min-height: 50px;
+  padding: 8px;
+  padding-left: 12px;
+  padding-right: 12px;
+  background: #ffffff;
+  color: #000000;
+  -webkit-border-radius: 3px;
+  -moz-border-radius: 3px;
+  border-radius: 8px;
+  border: #000 solid 2px;
+  z-index: 90000;
+}
+
+.annotation-label:after {
+  content: "";
+  position: absolute;
+  border-style: solid;
+  border-width: 8px 12px 8px 0;
+  border-color: transparent white;
+  display: block;
+  width: 0;
+  z-index: 1;
+  margin-top: -11px;
+  left: -12px;
+  top: 20px;
+}
+
+.annotation-label:before {
+  content: "";
+  position: absolute;
+  border-style: solid;
+  border-width: 9px 13px 9px 0;
+  border-color: transparent #000;
+  display: block;
+  width: 0;
+  z-index: 0;
+  margin-top: -12px;
+  left: -15px;
+  top: 20px;
+}
+
+.annotation-title {
+  font: normal 20px arial, serif;
+  margin-bottom: 8px;
+}
+
+.annotation-desc {
+  font: normal 14px arial, serif;
+}
+
+/* ----------------------------------------------------------------------------------------------------------*/
+/* Distance ruler
+/* ----------------------------------------------------------------------------------------------------------*/
+div[class^="viewer-ruler-"] {
+  position: fixed !important;
 }

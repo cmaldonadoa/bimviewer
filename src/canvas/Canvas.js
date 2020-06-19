@@ -5,6 +5,9 @@ import { NavCubePlugin } from "@xeokit/xeokit-sdk/src/plugins/NavCubePlugin/NavC
 import { TreeViewPlugin } from "@xeokit/xeokit-sdk/src/plugins/TreeViewPlugin/TreeViewPlugin.js";
 import { StoreyViewsPlugin } from "@xeokit/xeokit-sdk/src/plugins/StoreyViewsPlugin/StoreyViewsPlugin.js";
 import { math } from "@xeokit/xeokit-sdk/src/viewer/scene/math/math.js";
+import { SectionPlanesPlugin } from "@xeokit/xeokit-sdk/src/plugins/SectionPlanesPlugin/SectionPlanesPlugin.js";
+import { DistanceMeasurementsPlugin } from "@xeokit/xeokit-sdk/src/plugins/DistanceMeasurementsPlugin/DistanceMeasurementsPlugin.js";
+import { AnnotationsPlugin } from "@xeokit/xeokit-sdk/src/plugins/AnnotationsPlugin/AnnotationsPlugin.js";
 
 export default class Canvas extends React.Component {
   constructor(props) {
@@ -12,10 +15,16 @@ export default class Canvas extends React.Component {
     this.mounted = false;
     this.loading = true;
 
+    /* Mouse click action */
+    this.mouseCreatePlanes = false;
+    this.mouseMeasureDistance = false;
+    this.mouseCreateAnnotations = false;
+
     /* Store user changes */
     this.visible = props.allIds;
     this.xrayed = [];
     this.selected = [];
+    this.planes = [];
 
     /* GUI functions */
     this.updateEntity = props.updateEntity;
@@ -44,6 +53,7 @@ export default class Canvas extends React.Component {
 
     cameraControl.panRightClick = false;
     cameraControl.doublePickFlyTo = true;
+    cameraControl.panInertia = 0;
     cameraFlight.duration = 1.0;
     cameraFlight.fitFOV = 25;
 
@@ -152,7 +162,7 @@ export default class Canvas extends React.Component {
             scene.setObjectsSelected(scene.objectIds, false);
             scene.setObjectsSelected(this.selected, true);
 
-            let x = coords[0];
+            let x = coords[0] - 430;
             let y = coords[1];
 
             this.openCanvasContextMenu(x, y, entity, {
@@ -172,44 +182,142 @@ export default class Canvas extends React.Component {
     cameraControl.on(
       "picked",
       (e) => {
-          var coords = e.canvasPos;
-          var hit = scene.pick({
-            canvasPos: coords,
-          });
+        var coords = e.canvasPos;
+        var hit = scene.pick({
+          canvasPos: coords,
+        });
 
-          if (hit) {
-            var entity = hit.entity;
-            var objectId = entity.id;
+        if (hit) {
+          var entity = hit.entity;
+          var objectId = entity.id;
 
-            if (scene.input.ctrlDown) {
-              if (entity.selected) {
-                let idx = this.selected.indexOf(objectId);
-                this.selected.splice(idx, 1);
-              } else {
-                this.selected.push(objectId);
-              }
+          if (scene.input.ctrlDown) {
+            if (entity.selected) {
+              let idx = this.selected.indexOf(objectId);
+              this.selected.splice(idx, 1);
             } else {
-              if (entity.selected) {
-                this.selected = [];
-              } else {
-                this.selected = [objectId];
-              }
+              this.selected.push(objectId);
             }
-
-            scene.setObjectsSelected(scene.objectIds, false);
-            scene.setObjectsSelected(this.selected, true);
-
-            if (this.mounted) {
-              this.treeView.showNode(objectId);
-              this.updateEntity(objectId);
-              this.closeTreeContextMenu();
+          } else {
+            if (entity.selected) {
+              this.selected = [];
+            } else {
+              this.selected = [objectId];
             }
-          }        
+          }
+
+          scene.setObjectsSelected(scene.objectIds, false);
+          scene.setObjectsSelected(this.selected, true);
+
+          if (this.mounted) {
+            this.treeView.showNode(objectId);
+            this.updateEntity(objectId);
+            this.closeTreeContextMenu();
+          }
+        }
       },
       this
     );
 
-    
+    //------------------------------------------------------------------------------------------------------------------
+    // Add section planes plugin
+    //------------------------------------------------------------------------------------------------------------------
+    const sectionPlanes = new SectionPlanesPlugin(viewer, {
+      overviewCanvasId: "planes-overview",
+      overviewVisible: true,
+    });
+    this.sectionPlanes = sectionPlanes;
+
+    scene.input.on(
+      "mousedown",
+      (coords) => {
+        if (scene.input.mouseDownLeft) {
+          var hit = scene.pick({
+            canvasPos: coords,
+            pickSurface: true,
+          });
+          if (hit) {
+            if (hit.entity.isObject && this.mouseCreatePlanes) {
+              let planeId = `section-plane-${this.planes.length}`;
+              this.planes.push(planeId);
+
+              this.sectionPlanes.createSectionPlane({
+                id: planeId,
+                canvasPos: hit.canvasPos,
+                pos: hit.worldPos,
+                dir: [
+                  -hit.worldNormal[0],
+                  -hit.worldNormal[1],
+                  -hit.worldNormal[2],
+                ],
+              });
+
+              this.sectionPlanes.showControl(planeId);
+            } else if (hit.entity.isObject && this.mouseDestroyPlanes) {
+              console.log("");
+            }
+          }
+        }
+      },
+      this
+    );
+
+    //------------------------------------------------------------------------------------------------------------------
+    // Measure distance with mouse
+    //------------------------------------------------------------------------------------------------------------------
+    const distanceMeasurements = new DistanceMeasurementsPlugin(viewer);
+    this.distanceMeasurements = distanceMeasurements;
+
+    //------------------------------------------------------------------------------------------------------------------
+    // Create annotations on click
+    //------------------------------------------------------------------------------------------------------------------
+    const annotations = new AnnotationsPlugin(viewer, {
+      // Default HTML template for marker position
+      markerHTML:
+        "<div class='annotation-marker' style='background-color: {{markerBGColor}};'>{{glyph}}</div>",
+
+      // Default HTML template for label
+      labelHTML:
+        "<div class='annotation-label' style='background-color: {{labelBGColor}};'>" +
+        "<div class='annotation-title'>{{title}}</div><div class='annotation-desc'>{{description}}</div></div>",
+
+      // Default values to insert into the marker and label templates
+      values: {
+        markerBGColor: "black",
+        labelBGColor: "white",
+        glyph: "X",
+        title: "Sin título",
+        description: "Sin descripción",
+      },
+    });
+    this.annotations = annotations;
+
+    this.annotationsCount = 1;
+    scene.input.on("mouseclicked", (coords) => {
+        var hit = scene.pick({
+          canvasPos: coords,
+          pickSurface: true,
+        });
+
+        if (hit && this.mouseCreateAnnotations) {
+          const annotation = this.annotations.createAnnotation({
+            id: "annotation-" + this.annotationsCount,
+            pickResult: hit,
+            occludable: true, // Optional, default is true
+            markerShown: true, // Optional, default is true
+            labelShown: true, // Optional, default is true
+            values: {
+              // HTML template values
+              glyph: this.annotationsCount,
+              title: "Sin título " + this.annotationsCount,
+              description: "Sin descripción " + this.annotationsCount,
+            },
+          });
+
+          this.annotationsCount++;
+        }
+    }, this);
+
     window.viewer = viewer;
   }
 
@@ -411,6 +519,14 @@ export default class Canvas extends React.Component {
     const viewer = window.viewer;
     const cameraControl = viewer.cameraControl;
     cameraControl.firstPerson = mode;
+  }
+
+  fitModel() {
+    const viewer = window.viewer;
+    const scene = viewer.scene;
+    viewer.cameraFlight.flyTo({
+      aabb: scene.models["model"].aabb,
+    });
   }
 
   getStoreys() {
@@ -645,5 +761,53 @@ export default class Canvas extends React.Component {
         }
       },
     });
+  }
+
+  setCameraMode(mode) {
+    const viewer = window.viewer;
+    const cameraControl = viewer.cameraControl;
+    switch (mode) {
+      case "orbit":
+        cameraControl.navMode = "orbit";
+        break;
+      case "pan":
+        cameraControl.navMode = "planView";
+        break;
+      case "zoom":
+        cameraControl.navMode = "orbit";
+        break;
+      default:
+        cameraControl.navMode = "orbit";
+        break;
+    }
+  }
+
+  createSectionPlane() {
+    this.mouseCreatePlanes = !this.mouseCreatePlanes;
+    this.planes.forEach((planeId) =>
+      this.sectionPlanes.destroySectionPlane(planeId)
+    );
+    this.planes = [];
+  }
+
+  destroySectionPlane() {
+    this.mouseDestroyPlanes = !this.mouseDestroyPlanes;
+  }
+
+  measureDistance() {
+    this.mouseMeasureDistance = !this.mouseMeasureDistance;
+    if (this.mouseMeasureDistance) {
+      this.distanceMeasurements.control.activate();
+    } else {
+      this.distanceMeasurements.control.deactivate();
+      this.distanceMeasurements.clear();
+    }
+  }
+
+  createAnnotations() {
+    this.mouseCreateAnnotations = !this.mouseCreateAnnotations;
+    if (!this.mouseCreateAnnotations) {
+      this.annotations.clear();
+    }
   }
 }
