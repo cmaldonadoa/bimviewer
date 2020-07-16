@@ -7,6 +7,32 @@ import { FiBox } from "react-icons/fi";
 import { BsEyeFill, BsEyeSlashFill } from "react-icons/bs";
 import CheckBoxOutlineBlankIcon from "@material-ui/icons/CheckBoxOutlineBlank";
 import CheckBoxIcon from "@material-ui/icons/CheckBox";
+import ListItemIcon from "@material-ui/core/ListItemIcon";
+import Typography from "@material-ui/core/Typography";
+import { makeStyles } from "@material-ui/core/styles";
+
+const useStyles = makeStyles((theme) => ({
+  icon: {
+    marginRight: "8px",
+    minWidth: 0,
+    '& svg': {
+      fontSize: "14px"
+    }
+  },
+}));
+
+const CustomMenuItem = (props) => {
+  const classes = useStyles();
+  const icon = props.icon;
+  const text = props.text;
+
+  return (
+    <React.Fragment>
+      <ListItemIcon className={classes.icon}>{icon}</ListItemIcon>
+      <Typography variant="inherit">{text}</Typography>
+    </React.Fragment>
+  );
+};
 
 export default function TreeContextMenu(props) {
   const [anchorEl, setAnchorEl] = React.useState(null);
@@ -38,46 +64,39 @@ export default function TreeContextMenu(props) {
       onClick={(e) => handleClose()}
     >
       <MenuItem onClick={(e) => props.callbacks.lookAt(props.node.objectId)}>
-        Mirar
+        <Typography variant="inherit">Mirar</Typography>
       </MenuItem>
       <MenuItem onClick={(e) => props.callbacks.toggleVisibility(props.node)}>
         {props.state.visible ? (
-          <span>
-            <BsEyeSlashFill /> Ocultar
-          </span>
+          <CustomMenuItem icon={<BsEyeSlashFill />} text="Ocultar" />
         ) : (
-          <span>
-            <BsEyeFill /> Mostar
-          </span>
+          <CustomMenuItem icon={<BsEyeFill />} text="Mostar" />
         )}
       </MenuItem>
       <MenuItem onClick={(e) => props.callbacks.toggleXray(props.node)}>
         {props.state.xrayed ? (
-          <span>
-            <GiCube /> Definir opaco
-          </span>
+          <CustomMenuItem icon={<GiCube />} text="Definir opaco" />
         ) : (
-          <span>
-            <FiBox /> Definir transparente
-          </span>
+          <CustomMenuItem icon={<FiBox />} text="Definir transparente" />
         )}
       </MenuItem>
       <MenuItem onClick={(e) => props.callbacks.toggleSelect(props.node)}>
         {props.state.selected ? (
-          <span>
-            <CheckBoxIcon /> Deseleccionar
-          </span>
+          <CustomMenuItem icon={<CheckBoxIcon />} text="Deseleccionar" />
         ) : (
-          <span>
-            <CheckBoxOutlineBlankIcon /> Seleccionar
-          </span>
+          <CustomMenuItem
+            icon={<CheckBoxOutlineBlankIcon />}
+            text="Seleccionar"
+          />
         )}
       </MenuItem>
       {/*<MenuItem onClick={(e) => props.callbacks.isolate(props.node)}>
         Aislar
       </MenuItem>*/}
       <Divider />
-      <MenuItem onClick={handleClose}>Cerrar</MenuItem>
+      <MenuItem onClick={handleClose}>
+        <Typography variant="inherit">Cerrar</Typography>
+      </MenuItem>
     </Menu>
   );
 }
