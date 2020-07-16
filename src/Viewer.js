@@ -115,7 +115,7 @@ export default class Viewer extends React.Component {
     this.setState({
       openCanvasContextMenu: element,
       entity: element,
-      x: x + 430,
+      x: x,
       y: y,
       canvasContextState: state,
     });

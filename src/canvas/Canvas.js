@@ -14,6 +14,7 @@ export default class Canvas extends React.Component {
     super(props);
     this.mounted = false;
     this.loading = true;
+    this.dx = window.navigator.userAgent.indexOf("Chrome") !== -1 ? -430 : 0;
 
     /* Mouse click action */
     this.mouseCreatePlanes = false;
@@ -122,6 +123,7 @@ export default class Canvas extends React.Component {
     var lastEntity = null;
 
     scene.input.on("mousemove", (coords) => {
+      //coords[0] += this.dx;
       var hit = viewer.scene.pick({
         canvasPos: coords,
       });
@@ -149,6 +151,7 @@ export default class Canvas extends React.Component {
     scene.input.on(
       "mousedown",
       (coords) => {
+        //coords[0] += this.dx;
         if (scene.input.mouseDownRight) {
           var hit = scene.pick({
             canvasPos: coords,
@@ -162,7 +165,7 @@ export default class Canvas extends React.Component {
             scene.setObjectsSelected(scene.objectIds, false);
             scene.setObjectsSelected(this.selected, true);
 
-            let x = coords[0] - 430;
+            let x = coords[0];
             let y = coords[1];
 
             this.openCanvasContextMenu(x, y, entity, {
@@ -183,6 +186,7 @@ export default class Canvas extends React.Component {
       "picked",
       (e) => {
         var coords = e.canvasPos;
+        //coords[0] += this.dx;
         var hit = scene.pick({
           canvasPos: coords,
         });
@@ -274,17 +278,17 @@ export default class Canvas extends React.Component {
     const annotations = new AnnotationsPlugin(viewer, {
       // Default HTML template for marker position
       markerHTML:
-        "<div class='annotation-marker' style='background-color: {{markerBGColor}};'>{{glyph}}</div>",
+        "<div class='annotation-marker'>{{glyph}}</div>",
 
       // Default HTML template for label
       labelHTML:
-        "<div class='annotation-label' style='background-color: {{labelBGColor}};'>" +
-        "<div class='annotation-title'>{{title}}</div><div class='annotation-desc'>{{description}}</div></div>",
+        "<div class='annotation-label'>" +
+        "<div class='annotation-title'>{{title}}</div>" +
+        "<div class='annotation-desc'>{{description}}</div></div>",
 
       // Default values to insert into the marker and label templates
       values: {
-        markerBGColor: "black",
-        labelBGColor: "white",
+        //margin: 430 + this.dx + "px",
         glyph: "X",
         title: "Sin título",
         description: "Sin descripción",
@@ -293,7 +297,9 @@ export default class Canvas extends React.Component {
     this.annotations = annotations;
 
     this.annotationsCount = 1;
-    scene.input.on("mouseclicked", (coords) => {
+    scene.input.on(
+      "mouseclicked",
+      (coords) => {
         var hit = scene.pick({
           canvasPos: coords,
           pickSurface: true,
@@ -303,20 +309,19 @@ export default class Canvas extends React.Component {
           const annotation = this.annotations.createAnnotation({
             id: "annotation-" + this.annotationsCount,
             pickResult: hit,
-            occludable: true, // Optional, default is true
-            markerShown: true, // Optional, default is true
-            labelShown: true, // Optional, default is true
             values: {
               // HTML template values
               glyph: this.annotationsCount,
               title: "Sin título " + this.annotationsCount,
-              description: "Sin descripción " + this.annotationsCount,
+              description: "Sin descripción",
             },
           });
 
           this.annotationsCount++;
         }
-    }, this);
+      },
+      this
+    );
 
     window.viewer = viewer;
   }

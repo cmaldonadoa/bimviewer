@@ -1,3 +1,8 @@
+:root {
+  /*--sidebar-width: 430px;*/
+  --sidebar-width: 0;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
@@ -12,18 +17,22 @@ body {
     rgba(173, 173, 173, 1) 90%
   );
   overscroll-behavior: contain; /* Prevent refreshing when pulling down (mobile)*/
-  overflow-y: hidden;
-  width: calc(100vw - 430px) !important;
+  overflow: hidden;
   height: 100vh !important;
-  min-width: calc(100vw - 430px) !important;
-  max-width: calc(100vw - 430px) !important;
+  width: calc(100vw - var(--sidebar-width)) !important;
+  min-width: calc(100vw - var(--sidebar-width)) !important;
+  max-width: calc(100vw - var(--sidebar-width)) !important;
   min-height: 100vh !important;
-  left: 430px;
+  right: 0;
   position: relative;
 }
 
 body,
 body * {
+  font-size: 14px;
+}
+
+*[class^="MuiTypography"] {
   font-size: 14px !important;
 }
 
@@ -34,11 +43,12 @@ code {
 
 #root {
   max-width: 100vw;
-  width: 430px;
+  width: /*100vw;*/ /*var(--sidebar-width);*/ 430px;
   height: 100vh;
   position: fixed;
   left: 0;
   top: 0;
+  z-index: 200001;
 }
 
 /* ----------------------------------------------------------------------------------------------------------*/
@@ -47,9 +57,10 @@ code {
 #canvas-container {
   position: fixed;
   max-width: 100vw;
-  width: calc(100vw - 430px); /* 100vw - root width*/
+  width: /*calc(100vw - var(--sidebar-width));*/ 100vw;
   height: 100vh;
   right: 0;
+  margin-left: var(--sidebar-width);
   display: flex;
   justify-content: center;
 }
@@ -131,7 +142,7 @@ div.sidebar-tabpanel > * {
   overflow-x: hidden;
   background-color: #fff;
   color: black;
-  padding-top: 5px;
+  padding-top: 16px;
   padding-left: 5px;
 }
 
@@ -255,12 +266,13 @@ div.sidebar-tabpanel > * {
 /* Context menu*/
 #tree-context-menu div[class^="Mui"] {
   top: 0 !important;
-  left: -430px !important;
+  left: - var(--sidebar-width) !important;
   pointer-events: visible !important;
 }
 
 #tree-context-menu {
   pointer-events: none;
+  z-index: 200002 !important;
 }
 
 @keyframes fade-in {
