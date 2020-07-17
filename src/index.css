@@ -48,7 +48,7 @@ code {
   position: fixed;
   left: 0;
   top: 0;
-  z-index: 200001;
+  z-index: 101;
 }
 
 /* ----------------------------------------------------------------------------------------------------------*/
@@ -76,7 +76,7 @@ code {
   height: 170px;
   width: 170px;
   right: 0px;
-  z-index: 200000;
+  z-index: 100;
 }
 
 #storey-map {
@@ -86,7 +86,7 @@ code {
   margin: 14px;
   z-index: 1;
   cursor: pointer;
-  z-index: 200001;
+  z-index: 100;
 }
 
 #plan-pointer {
@@ -101,7 +101,7 @@ code {
   background-image: url(images/storeyMapCamera.png);
   background-repeat: no-repeat;
   background-size: 60px 60px;
-  z-index: 200002 !important;
+  z-index: 102 !important;
 }
 
 #planes-overview {
@@ -111,7 +111,7 @@ code {
   right: 0;
   bottom: 0;
   margin: 14px;
-  z-index: 200000;
+  z-index: 101;
 }
 
 /* ----------------------------------------------------------------------------------------------------------*/
@@ -272,7 +272,7 @@ div.sidebar-tabpanel > * {
 
 #tree-context-menu {
   pointer-events: none;
-  z-index: 200002 !important;
+  z-index: 1500 !important;
 }
 
 @keyframes fade-in {
@@ -429,7 +429,7 @@ button[id^="properties-tab-"] {
   border: 2px solid #ffffff;
   background: black;
   visibility: hidden;
-  z-index: 0;
+  z-index: 0 !important;
 }
 
 .annotation-label {
@@ -445,7 +445,7 @@ button[id^="properties-tab-"] {
   -moz-border-radius: 3px;
   border-radius: 8px;
   border: #000 solid 2px;
-  z-index: 90000;
+  z-index: 2 !important;
 }
 
 .annotation-label:after {
