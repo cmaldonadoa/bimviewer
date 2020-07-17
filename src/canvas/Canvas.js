@@ -14,7 +14,8 @@ export default class Canvas extends React.Component {
     super(props);
     this.mounted = false;
     this.loading = true;
-    this.dx = window.navigator.userAgent.indexOf("Chrome") !== -1 ? -430 : 0;
+    this.modelName = props.modelName;
+    this.modelPath = props.modelPath;
 
     /* Mouse click action */
     this.mouseCreatePlanes = false;
@@ -82,12 +83,54 @@ export default class Canvas extends React.Component {
 
     const model = gltfLoader.load({
       id: "model",
-      src: "/models/IFC_Schependomlaan.gltf",
-      metaModelSrc: "/models/IFC_Schependomlaan_xeokit.json",
+      src: this.modelPath + this.modelName + ".gltf",
+      metaModelSrc: this.modelPath + this.modelName + "_xeokit.json",
       edges: true,
     });
 
     window.model = model;
+
+    //------------------------------------------------------------------------------------------------------------------
+    // Handle zoom with left click
+    //------------------------------------------------------------------------------------------------------------------
+    var timeout;
+    scene.input.on(
+      "mousedown",
+      (coords) => {
+        if (this.mouseZoom) {
+          if (scene.input.mouseDownLeft) {
+            window.document.getElementById("canvas").style.cursor = "zoom-in";
+            timeout = setInterval(function () {
+              camera.zoom(-0.2);
+            }, 0);
+          } else if (scene.input.mouseDownRight) {
+            window.document.getElementById("canvas").style.cursor = "zoom-out";
+            timeout = setInterval(function () {
+              camera.zoom(0.2);
+            }, 0);
+          }
+        } else if (!this.mousePan) {
+          if (scene.input.mouseDownLeft) {
+            timeout = setInterval(function () {
+              window.document.getElementById("canvas").style.cursor =
+                "grabbing";
+            }, 0);
+          }
+        }
+      },
+      this
+    );
+
+    scene.input.on(
+      "mouseup",
+      (coords) => {
+        clearInterval(timeout);
+        if (!this.mouseZoom && !this.mousePan) {
+          window.document.getElementById("canvas").style.cursor = "default";
+        }
+      },
+      this
+    );
 
     //------------------------------------------------------------------------------------------------------------------
     // Create a NavCube
@@ -123,7 +166,6 @@ export default class Canvas extends React.Component {
     var lastEntity = null;
 
     scene.input.on("mousemove", (coords) => {
-      //coords[0] += this.dx;
       var hit = viewer.scene.pick({
         canvasPos: coords,
       });
@@ -151,8 +193,7 @@ export default class Canvas extends React.Component {
     scene.input.on(
       "mousedown",
       (coords) => {
-        //coords[0] += this.dx;
-        if (scene.input.mouseDownRight) {
+        if (scene.input.mouseDownRight && !this.mouseZoom) {
           var hit = scene.pick({
             canvasPos: coords,
           });
@@ -186,7 +227,6 @@ export default class Canvas extends React.Component {
       "picked",
       (e) => {
         var coords = e.canvasPos;
-        //coords[0] += this.dx;
         var hit = scene.pick({
           canvasPos: coords,
         });
@@ -257,6 +297,7 @@ export default class Canvas extends React.Component {
               });
 
               this.sectionPlanes.showControl(planeId);
+              this.mouseCreatePlanes = false;
             } else if (hit.entity.isObject && this.mouseDestroyPlanes) {
               console.log("");
             }
@@ -277,8 +318,7 @@ export default class Canvas extends React.Component {
     //------------------------------------------------------------------------------------------------------------------
     const annotations = new AnnotationsPlugin(viewer, {
       // Default HTML template for marker position
-      markerHTML:
-        "<div class='annotation-marker'>{{glyph}}</div>",
+      markerHTML: "<div class='annotation-marker'>{{glyph}}</div>",
 
       // Default HTML template for label
       labelHTML:
@@ -288,7 +328,6 @@ export default class Canvas extends React.Component {
 
       // Default values to insert into the marker and label templates
       values: {
-        //margin: 430 + this.dx + "px",
         glyph: "X",
         title: "Sin título",
         description: "Sin descripción",
@@ -306,18 +345,29 @@ export default class Canvas extends React.Component {
         });
 
         if (hit && this.mouseCreateAnnotations) {
-          const annotation = this.annotations.createAnnotation({
-            id: "annotation-" + this.annotationsCount,
+          const id = "annotation-" + this.annotationsCount;
+          const title = "Sin título " + this.annotationsCount;
+          const desc = "Sin descripción";
+          this.annotations.createAnnotation({
+            id: id,
             pickResult: hit,
+            occludable: true,
+            labelShown: true,
             values: {
               // HTML template values
               glyph: this.annotationsCount,
-              title: "Sin título " + this.annotationsCount,
-              description: "Sin descripción",
+              title: title,
+              description: desc,
             },
           });
 
           this.annotationsCount++;
+          this.mouseCreateAnnotations = false;
+          this.props.signalNewAnnotation({
+            id: id,
+            name: title,
+            description: desc,
+          });
         }
       },
       this
@@ -773,26 +823,41 @@ export default class Canvas extends React.Component {
     const cameraControl = viewer.cameraControl;
     switch (mode) {
       case "orbit":
+        window.document.getElementById("canvas").style.cursor = "default";
+        cameraControl.pointerEnabled = true;
+        this.mouseZoom = false;
+        this.mousePan = false;
         cameraControl.navMode = "orbit";
         break;
       case "pan":
+        cameraControl.pointerEnabled = true;
+        this.mouseZoom = false;
+        this.mousePan = true;
         cameraControl.navMode = "planView";
         break;
       case "zoom":
-        cameraControl.navMode = "orbit";
+        window.document.getElementById("canvas").style.cursor = "zoom-in";
+        cameraControl.pointerEnabled = false;
+        this.mouseZoom = true;
+        this.mousePan = false;
         break;
       default:
+        window.document.getElementById("canvas").style.cursor = "default";
+        cameraControl.pointerEnabled = true;
+        this.mouseZoom = false;
+        this.mousePan = false;
         cameraControl.navMode = "orbit";
         break;
     }
   }
 
   createSectionPlane() {
-    this.mouseCreatePlanes = !this.mouseCreatePlanes;
+    this.mouseCreatePlanes = true;
+    /*
     this.planes.forEach((planeId) =>
       this.sectionPlanes.destroySectionPlane(planeId)
     );
-    this.planes = [];
+    this.planes = [];*/
   }
 
   destroySectionPlane() {
@@ -810,9 +875,36 @@ export default class Canvas extends React.Component {
   }
 
   createAnnotations() {
-    this.mouseCreateAnnotations = !this.mouseCreateAnnotations;
+    this.mouseCreateAnnotations = true;
+    /*
     if (!this.mouseCreateAnnotations) {
       this.annotations.clear();
-    }
+    }*/
+  }
+
+  destroyAnnotation(id) {
+    this.annotations.destroyAnnotation(id);
+  }
+
+  updateAnnotation(id, name, description) {
+    this.annotations.annotations[id].setValues({
+      title: name,
+      description: description,
+    });
+  }
+
+  toggleAnnotationVisibility(id) {
+    const label = this.annotations.annotations[id].getLabelShown();
+    const marker = this.annotations.annotations[id].getMarkerShown();
+    this.annotations.annotations[id].setLabelShown(!label);
+    this.annotations.annotations[id].setMarkerShown(!marker);
+  }
+
+  takeSnapshot() {
+    const img = window.viewer.getSnapshot();
+    var a = document.createElement("a");
+    a.href = img;
+    a.download = `${this.modelName}.png`;
+    a.click();
   }
 }
