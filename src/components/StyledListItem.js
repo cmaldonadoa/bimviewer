@@ -13,6 +13,7 @@ import Collapse from "@material-ui/core/Collapse";
 import ExpandLess from "@material-ui/icons/ExpandLess";
 import ExpandMore from "@material-ui/icons/ExpandMore";
 import { makeStyles } from "@material-ui/core/styles";
+import Typography from "@material-ui/core/Typography";
 
 const useStyles = makeStyles((theme) => ({
   formControl: {
@@ -101,7 +102,7 @@ const StyledListItemSelect = (props) => {
           </MenuItem>
           {options.map((option) => (
             <MenuItem key={option.value} value={option.value}>
-              {option.label}
+              <Typography variant="inherit">{option.label}</Typography>
             </MenuItem>
           ))}
         </Select>

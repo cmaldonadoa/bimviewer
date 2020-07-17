@@ -44,7 +44,7 @@ export default function TreeContextMenu(props) {
     } else {
       setAnchorEl(null);
     }
-  }, [props, props.open]);
+  }, [ref, props.open]);
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
