@@ -7,6 +7,8 @@ import CanvasContextMenu from "./gui/CanvasContextMenu";
 export default class Viewer extends React.Component {
   constructor(props) {
     super(props);
+    this.modelPath = "/models/ifc/"
+    this.modelName = "IFC_Schependomlaan"
     this.state = {
       mounting: true,
       currentEntity: null,
@@ -17,15 +19,18 @@ export default class Viewer extends React.Component {
       canvasContextState: {},
       x: 0,
       y: 0,
+      annotations: [],
     };
 
     var xhttp = new XMLHttpRequest();
-    xhttp.open("GET", `/models/IFC_Schependomlaan_id.json`, false);
+    xhttp.open("GET", `${this.modelPath}${this.modelName}_id.json`, false);
     xhttp.send();
     this.xresponse = JSON.parse(xhttp.response);
 
     this.canvas = new Canvas({
       allIds: Object.keys(this.xresponse),
+      modelName: this.modelName,
+      modelPath: this.modelPath,
       updateEntity: (id) => this.updateEntity(id),
       openTreeContextMenu: (node, x, y, element, state) =>
         this.openTreeContextMenu(node, x, y, element, state),
@@ -33,6 +38,7 @@ export default class Viewer extends React.Component {
       openCanvasContextMenu: (x, y, element, state) =>
         this.openCanvasContextMenu(x, y, element, state),
       closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
+      signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
       signalMount: () => this.signalMount(),
     });
   }
@@ -166,6 +172,67 @@ export default class Viewer extends React.Component {
     this.canvas.createAnnotations();
   }
 
+  takeSnapshot() {
+    this.canvas.takeSnapshot();
+  }
+
+  downloadExcel () {
+    fetch("/php/xml_xls.php", {
+      method: "POST",
+      body: JSON.stringify({
+        filename: this.modelName,
+        folder: this.modelPath,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+      .then((res) => {
+        var a = document.createElement("a");
+        a.href = res.file;
+        a.download = `${this.modelName}.xlsx`;
+        a.click();
+      })
+      .catch((err) => console.error(err));
+  };
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Signals
+  //------------------------------------------------------------------------------------------------------------------
+
+  addAnnotation(annotation) {
+    this.setState((prevState) => ({
+      annotations: [...prevState.annotations, annotation],
+    }));
+  }
+
+  removeAnnotation(index) {
+    var annotations = [...this.state.annotations];
+    var id = annotations[index].id;
+    delete annotations[index];
+    this.canvas.destroyAnnotation(id);
+    this.setState((prevState) => ({
+      annotations: annotations,
+    }));
+  }
+
+  updateAnnotation(index, name, description) {
+    var annotations = [...this.state.annotations];
+    var id = annotations[index].id;
+    var newAnnotation = { id: id, name: name, description: description };
+    annotations[index] = newAnnotation;
+    this.canvas.updateAnnotation(id, name, description);
+    this.setState((prevState) => ({
+      annotations: annotations,
+    }));
+  }
+
+  toggleAnnotationVisibility(index) {
+    var annotations = [...this.state.annotations];
+    var id = annotations[index].id;
+    this.canvas.toggleAnnotationVisibility(id);
+  }
+
   render() {
     return (
       <React.Fragment>
@@ -222,6 +289,7 @@ export default class Viewer extends React.Component {
             unmount: () => this.unmountTree(),
             currentEntity: this.state.currentEntity,
           }}
+          annotations={this.state.annotations}
           tools={{
             getStoreys: () => this.getStoreys(),
             setStorey: (value) => this.setStorey(value),
@@ -231,7 +299,13 @@ export default class Viewer extends React.Component {
             createSectionPlane: () => this.createSectionPlane(),
             fitModel: () => this.fitModel(),
             measureDistance: () => this.measureDistance(),
-            createAnnotations: () => this.createAnnotations()
+            createAnnotations: () => this.createAnnotations(),
+            destroyAnnotation: (index) => this.removeAnnotation(index),
+            toggleAnnotation: (index) => this.toggleAnnotationVisibility(index),
+            saveAnnotation: (index, name, description) =>
+              this.updateAnnotation(index, name, description),
+            takeSnapshot: () => this.takeSnapshot(),
+            downloadExcel: () => this.downloadExcel()
           }}
         />
       </React.Fragment>

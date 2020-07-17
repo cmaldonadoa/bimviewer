@@ -8,9 +8,12 @@ import Divider from "@material-ui/core/Divider";
 import TextField from "@material-ui/core/TextField";
 import Button from "@material-ui/core/Button";
 import Grid from "@material-ui/core/Grid";
+import ListItemIcon from '@material-ui/core/ListItemIcon';
+import Checkbox from '@material-ui/core/Checkbox';
 
 const Annotation = (props) => {
   const [name, setName] = React.useState(props.name);
+  const [visible, setVisible] = React.useState(true);
   const [savedName, setSavedName] = React.useState(props.name);
   const [description, setDescription] = React.useState(props.description);
   const [savedDescription, setSavedDescription] = React.useState(
@@ -20,8 +23,14 @@ const Annotation = (props) => {
   const [deleted, setDeleted] = React.useState(false);
 
   const deleteAnnotation = () => {
-    setDeleted(true);
+    props.onDelete(props.id)
+    setDeleted(true)
   };
+
+  const onChange = () => {
+    setVisible(!visible)
+    props.onCheck(props.id)
+  }
 
   const editAnnotation = () => {
     setEditing(true);
@@ -34,9 +43,10 @@ const Annotation = (props) => {
   };
 
   const saveEdit = () => {
+    props.onSave(props.id, name, description)
     setEditing(false);
     setSavedName(name);
-    setSavedDescription(description);
+    setSavedDescription(description);    
   };
 
   if (deleted) {
@@ -100,6 +110,15 @@ const Annotation = (props) => {
   return (
     <React.Fragment>
       <ListItem>
+        <ListItemIcon>
+          <Checkbox
+            edge="start"
+            checked={visible}
+            disableRipple
+            color="primary"
+            onChange={onChange}
+          />
+        </ListItemIcon>
         <ListItemText primary={savedName} />
         <div>
           <IconButton onClick={editAnnotation}>

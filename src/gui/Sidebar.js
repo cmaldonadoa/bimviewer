@@ -14,7 +14,7 @@ import Drawer from "@material-ui/core/Drawer";
 import IconButton from "@material-ui/core/IconButton";
 import MenuIcon from "@material-ui/icons/Menu";
 import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
-import Divider from '@material-ui/core/Divider';
+import Divider from "@material-ui/core/Divider";
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -48,6 +48,9 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.background.paper,
     padding: 0,
     overflow: "hidden",
+  },
+  appbar: {
+    boxShadow: "none",
   },
   placeholder: {
     paddingLeft: "10px",
@@ -167,11 +170,11 @@ export default function Sidebar(props) {
         }}
       >
         <div className={classes.root} onClick={() => props.onClick()}>
-          <AppBar position="static">
+          <AppBar position="static" className={classes.appbar}>
             <Tabs
               variant={responsive ? "" : "fullWidth"}
               value={value}
-              onChange={handleChange}              
+              onChange={handleChange}
             >
               <Tab label="Navegación" />
               <Tab label="Herramientas" />
@@ -204,7 +207,7 @@ export default function Sidebar(props) {
             <PropertiesContainer entity={entity} metadata={props.metadata} />
           </TabPanel>
           <TabPanel value={value} index={1}>
-            <div style={{ height: "calc(100vh - 48px)" }}>
+            <div style={{ height: "calc(100vh - 48px)", overflowY: "auto" }}>
               <SidebarOptions
                 storeys={storeys}
                 setStorey={props.tools.setStorey}
@@ -215,10 +218,16 @@ export default function Sidebar(props) {
                 fitModel={props.tools.fitModel}
                 measureDistance={props.tools.measureDistance}
                 createAnnotations={props.tools.createAnnotations}
+                destroyAnnotation={props.tools.destroyAnnotation}
+                saveAnnotation={props.tools.saveAnnotation}
+                toggleAnnotation={props.tools.toggleAnnotation}
+                takeSnapshot={props.tools.takeSnapshot}
+                downloadExcel={props.tools.downloadExcel}
                 secondDrawer={{
                   setContent: setSecondDrawerContent,
                   setOpen: setSecondDrawerOpen,
                 }}
+                annotations={props.annotations}
               />
             </div>
           </TabPanel>
