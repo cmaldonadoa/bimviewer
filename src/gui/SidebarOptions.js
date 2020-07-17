@@ -2,7 +2,7 @@ import React from "react";
 import { makeStyles } from "@material-ui/core/styles";
 import List from "@material-ui/core/List";
 import Divider from "@material-ui/core/Divider";
-import { FaFileExcel, FaFilePdf } from "react-icons/fa";
+import { FaFileExcel, FaFilePdf, FaFileImage } from "react-icons/fa";
 import AddIcon from "@material-ui/icons/Add";
 import EditIcon from "@material-ui/icons/Edit";
 import DeleteIcon from "@material-ui/icons/Delete";
@@ -15,6 +15,7 @@ import {
   StyledListItemAccordion,
 } from "../components/StyledListItem";
 import Annotation from "../components/Annotation";
+import { Typography } from "@material-ui/core";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -84,10 +85,7 @@ const SidebarOptions = (props) => {
     setContent(content);
   };
 
-  const closeDrawer = () => {
-    setOpen(true);
-    setContent(null);
-  };
+
 
   return (
     <div className={classes.root}>
@@ -137,7 +135,7 @@ const SidebarOptions = (props) => {
         <Divider />
 
         <StyledListItemSelect
-          label="Ver Piso"
+          label="Ver piso"
           onChange={handleStoreyChange}
           value={storey}
           options={props.storeys.map((storey) => ({
@@ -163,18 +161,23 @@ const SidebarOptions = (props) => {
             onClick={() =>
               openDrawer(
                 <List className={classes.denseList} dense>
-                  <Annotation
-                    name="Sin título 1"
-                    description="No description"
-                  />
-                  <Annotation
-                    name="Sin título 2"
-                    description="No description"
-                  />
-                  <Annotation
-                    name="Sin título 3"
-                    description="No description"
-                  />
+                  {props.annotations.length === 0 ? (
+                    <Typography className="p-3">No hay anotaciones.</Typography>
+                  ) : (
+                    props.annotations.map((annotation, index) =>
+                      annotation ? (
+                        <Annotation
+                          key={annotation.id}
+                          onDelete={props.destroyAnnotation}
+                          onSave={props.saveAnnotation}
+                          onCheck={props.toggleAnnotation}
+                          id={index}
+                          name={annotation.name}
+                          description={annotation.description}
+                        />
+                      ) : null
+                    )
+                  )}
                 </List>
               )
             }
@@ -242,8 +245,14 @@ const SidebarOptions = (props) => {
         />
 
         <StyledListItemButton
+          label="Descargar como PNG"
+          onClick={() => props.takeSnapshot()}
+          icon={<FaFileImage style={{ width: "24px", height: "24px" }} />}
+        />
+
+        <StyledListItemButton
           label="Descargar como XLSX"
-          onClick={() => {}}
+          onClick={() => props.downloadExcel()}
           icon={<FaFileExcel style={{ width: "24px", height: "24px" }} />}
         />
       </List>
