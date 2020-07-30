@@ -49,9 +49,6 @@ const useStyles = makeStyles((theme) => ({
     padding: 0,
     overflow: "hidden",
   },
-  appbar: {
-    boxShadow: "none",
-  },
   placeholder: {
     paddingLeft: "10px",
     paddingRight: "15px",
@@ -134,7 +131,6 @@ export default function Sidebar(props) {
       let newStoreys = [];
       for (let storeyId of props.tools.getStoreys()) {
         let data = props.metadata[storeyId];
-        console.log(storeyId, data)
         if (data) {
           let name = data.attributes.Name || "IfcBuildingStorey";
           newStoreys.push({
@@ -173,7 +169,7 @@ export default function Sidebar(props) {
         }}
       >
         <div className={classes.root} onClick={() => props.onClick()}>
-          <AppBar position="static" className={classes.appbar}>
+          <AppBar position="static" elevation={0}>
             <Tabs
               variant={responsive ? "" : "fullWidth"}
               value={value}
