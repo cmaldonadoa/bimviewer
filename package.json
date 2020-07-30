@@ -1,7 +1,7 @@
 {
   "name": "bimviewer",
   "version": "0.1.0",
-  "homepage": "/",
+  "homepage": "/development/v3/build/",
   "private": true,
   "dependencies": {
     "@material-ui/core": "^4.9.10",
@@ -13,6 +13,9 @@
     "@testing-library/user-event": "^7.1.2",
     "@xeokit/xeokit-sdk": "^0.9.92",
     "bootstrap": "^4.4.1",
+    "dotenv": "^8.2.0",
+    "html2canvas": "^1.0.0-rc.5",
+    "jspdf": "^1.5.3",
     "query-string": "^6.9.0",
     "react": "^16.12.0",
     "react-bootstrap": "^1.0.0-beta.16",
