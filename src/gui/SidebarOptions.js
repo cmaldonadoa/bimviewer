@@ -42,6 +42,7 @@ const SidebarOptions = (props) => {
   const [openSectionPlanes, setOpenSectionPlanes] = React.useState(false);
   const setOpen = props.secondDrawer.setOpen;
   const setContent = props.secondDrawer.setContent;
+  const tools = props.tools;
 
   const handleOpenAnotations = () => {
     setOpenAnotations(!openAnotations);
@@ -58,25 +59,25 @@ const SidebarOptions = (props) => {
   const handleStoreyChange = (event) => {
     let newStorey = event.target.value;
     setStorey(newStorey);
-    props.setStorey(newStorey);
+    tools.setStorey(newStorey);
   };
 
   const handleFpChange = (event) => {
     setFpState(!fpState);
-    props.toggleFirstPerson(!fpState);
+    tools.toggleFirstPerson(!fpState);
   };
 
   const handleViewChange = (event, newView) => {
     if (newView) {
       setView(newView);
-      props.setProjection(newView);
+      tools.setProjection(newView);
     }
   };
 
   const handleControlChange = (event, newControl) => {
     if (newControl) {
       setControl(newControl);
-      props.setCameraMode(newControl);
+      tools.setCameraMode(newControl);
     }
   };
 
@@ -152,7 +153,7 @@ const SidebarOptions = (props) => {
           <StyledListItemButton
             icon={<AddIcon />}
             label="Añadir"
-            onClick={() => props.createAnnotations()}
+            onClick={() => tools.createAnnotations()}
             className={classes.nested}
           />
           <StyledListItemButton
@@ -168,9 +169,9 @@ const SidebarOptions = (props) => {
                       annotation ? (
                         <Annotation
                           key={annotation.id}
-                          onDelete={props.destroyAnnotation}
-                          onSave={props.saveAnnotation}
-                          onCheck={props.toggleAnnotation}
+                          onDelete={tools.destroyAnnotation}
+                          onSave={tools.saveAnnotation}
+                          onCheck={tools.toggleAnnotation}
                           id={index}
                           name={annotation.name}
                           description={annotation.description}
@@ -199,13 +200,13 @@ const SidebarOptions = (props) => {
           <StyledListItemButton
             icon={<AddIcon />}
             label="Añadir"
-            onClick={() => props.createSectionPlane()}
+            onClick={() => tools.createSectionPlane()}
             className={classes.nested}
           />
           <StyledListItemButton
             icon={<DeleteIcon />}
-            label="Eliminar"
-            onClick={() => {}}
+            label="Eliminar seleccionado"
+            onClick={() => tools.destroySectionPlane()}
             className={classes.nested}
           />
         </StyledListItemAccordion>
@@ -218,20 +219,20 @@ const SidebarOptions = (props) => {
           <StyledListItemButton
             icon={<AddIcon />}
             label="Añadir"
-            onClick={() => props.measureDistance()}
+            onClick={() => tools.measureDistance()}
             className={classes.nested}
           />
           <StyledListItemButton
             icon={<DeleteIcon />}
-            label="Eliminar"
-            onClick={() => {}}
+            label="Eliminar todo"
+            onClick={() => tools.clearMeasurements()}
             className={classes.nested}
           />
         </StyledListItemAccordion>
 
         <StyledListItemButton
           label="Ajustar a la pantalla"
-          onClick={() => props.fitModel()}
+          onClick={() => tools.fitModel()}
         />
 
         <StyledListItemButton label="Mostar todo" onClick={() => {}} />
@@ -240,19 +241,19 @@ const SidebarOptions = (props) => {
 
         <StyledListItemButton
           label="Descargar como PDF"
-          onClick={() => {}}
+          onClick={() => tools.downloadPDF()}
           icon={<FaFilePdf style={{ width: "24px", height: "24px" }} />}
         />
 
         <StyledListItemButton
           label="Descargar como PNG"
-          onClick={() => props.takeSnapshot()}
+          onClick={() => tools.takeSnapshot()}
           icon={<FaFileImage style={{ width: "24px", height: "24px" }} />}
         />
 
         <StyledListItemButton
           label="Descargar como XLSX"
-          onClick={() => props.downloadExcel()}
+          onClick={() => tools.downloadExcel()}
           icon={<FaFileExcel style={{ width: "24px", height: "24px" }} />}
         />
       </List>
