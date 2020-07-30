@@ -134,11 +134,14 @@ export default function Sidebar(props) {
       let newStoreys = [];
       for (let storeyId of props.tools.getStoreys()) {
         let data = props.metadata[storeyId];
-        let name = data.attributes.Name || "IfcBuildingStorey";
-        newStoreys.push({
-          id: storeyId,
-          name: name,
-        });
+        console.log(storeyId, data)
+        if (data) {
+          let name = data.attributes.Name || "IfcBuildingStorey";
+          newStoreys.push({
+            id: storeyId,
+            name: name,
+          });
+        }
       }
       setStoreys(newStoreys);
     }
@@ -210,19 +213,7 @@ export default function Sidebar(props) {
             <div style={{ height: "calc(100vh - 48px)", overflowY: "auto" }}>
               <SidebarOptions
                 storeys={storeys}
-                setStorey={props.tools.setStorey}
-                setProjection={props.tools.setProjection}
-                setCameraMode={props.tools.setCameraMode}
-                toggleFirstPerson={props.tools.setFirstPerson}
-                createSectionPlane={props.tools.createSectionPlane}
-                fitModel={props.tools.fitModel}
-                measureDistance={props.tools.measureDistance}
-                createAnnotations={props.tools.createAnnotations}
-                destroyAnnotation={props.tools.destroyAnnotation}
-                saveAnnotation={props.tools.saveAnnotation}
-                toggleAnnotation={props.tools.toggleAnnotation}
-                takeSnapshot={props.tools.takeSnapshot}
-                downloadExcel={props.tools.downloadExcel}
+                tools={props.tools}
                 secondDrawer={{
                   setContent: setSecondDrawerContent,
                   setOpen: setSecondDrawerOpen,

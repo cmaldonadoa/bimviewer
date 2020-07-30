@@ -15,18 +15,19 @@ export default class Canvas extends React.Component {
     this.mounted = false;
     this.loading = true;
     this.modelName = props.modelName;
-    this.modelPath = props.modelPath;
 
     /* Mouse click action */
     this.mouseCreatePlanes = false;
     this.mouseMeasureDistance = false;
     this.mouseCreateAnnotations = false;
+    this.measureClicks = 0;
 
     /* Store user changes */
     this.visible = props.allIds;
     this.xrayed = [];
     this.selected = [];
-    this.planes = [];
+    this.planesCounter = 0;
+    this.measureClicks = 0;
 
     /* GUI functions */
     this.updateEntity = props.updateEntity;
@@ -83,8 +84,8 @@ export default class Canvas extends React.Component {
 
     const model = gltfLoader.load({
       id: "model",
-      src: this.modelPath + this.modelName + ".gltf",
-      metaModelSrc: this.modelPath + this.modelName + "_xeokit.json",
+      src: this.props.modelUrl,
+      metaModelSrc: this.props.metadataUrl,
       edges: true,
     });
 
@@ -150,13 +151,6 @@ export default class Canvas extends React.Component {
     // Add StoreyViewsPlugin
     //------------------------------------------------------------------------------------------------------------------
     const storeyViewsPlugin = new StoreyViewsPlugin(viewer);
-    storeyViewsPlugin.on(
-      "storeys",
-      () => {
-        this.storeys = storeyViewsPlugin.storeys;
-      },
-      this
-    );
 
     this.storeyViewsPlugin = storeyViewsPlugin;
 
@@ -273,35 +267,29 @@ export default class Canvas extends React.Component {
     this.sectionPlanes = sectionPlanes;
 
     scene.input.on(
-      "mousedown",
+      "mouseclicked",
       (coords) => {
-        if (scene.input.mouseDownLeft) {
-          var hit = scene.pick({
-            canvasPos: coords,
-            pickSurface: true,
+        var hit = scene.pick({
+          canvasPos: coords,
+          pickSurface: true,
+        });
+
+        if (hit && this.mouseCreatePlanes) {
+          let planeId = `section-plane-${this.planesCounter++}`;
+
+          this.sectionPlanes.createSectionPlane({
+            id: planeId,
+            canvasPos: hit.canvasPos,
+            pos: hit.worldPos,
+            dir: [
+              -hit.worldNormal[0],
+              -hit.worldNormal[1],
+              -hit.worldNormal[2],
+            ],
           });
-          if (hit) {
-            if (hit.entity.isObject && this.mouseCreatePlanes) {
-              let planeId = `section-plane-${this.planes.length}`;
-              this.planes.push(planeId);
 
-              this.sectionPlanes.createSectionPlane({
-                id: planeId,
-                canvasPos: hit.canvasPos,
-                pos: hit.worldPos,
-                dir: [
-                  -hit.worldNormal[0],
-                  -hit.worldNormal[1],
-                  -hit.worldNormal[2],
-                ],
-              });
-
-              this.sectionPlanes.showControl(planeId);
-              this.mouseCreatePlanes = false;
-            } else if (hit.entity.isObject && this.mouseDestroyPlanes) {
-              console.log("");
-            }
-          }
+          this.sectionPlanes.showControl(planeId);
+          this.mouseCreatePlanes = false;
         }
       },
       this
@@ -312,6 +300,35 @@ export default class Canvas extends React.Component {
     //------------------------------------------------------------------------------------------------------------------
     const distanceMeasurements = new DistanceMeasurementsPlugin(viewer);
     this.distanceMeasurements = distanceMeasurements;
+
+    scene.input.on(
+      "mouseclicked",
+      (coords) => {
+        var hit = scene.pick({
+          canvasPos: coords,
+          pickSurface: true,
+        });
+
+        if (hit && this.mouseMeasureDistance) {
+          if (++this.measureClicks === 2) {
+            this.measureClicks = 0;
+            this.mouseCreatePlanes = false;
+            var cursor = "default";
+            if (this.mousePan) {
+              cursor = "move";
+            } else if (this.mouseZoom) {
+              cursor = "zoom-in";
+            }
+            // Delay deactivation so it can render the ruler
+            setTimeout(() => {
+              this.distanceMeasurements.control.deactivate();
+              window.document.getElementById("canvas").style.cursor = cursor;
+            }, 50);
+          }
+        }
+      },
+      this
+    );
 
     //------------------------------------------------------------------------------------------------------------------
     // Create annotations on click
@@ -396,6 +413,7 @@ export default class Canvas extends React.Component {
       window.model.on("loaded", () => {
         this.treeView.addModel(window.model.id);
         this.loading = false;
+        console.log("signaling")
         this.signalMount();
       });
     }
@@ -586,8 +604,9 @@ export default class Canvas extends React.Component {
 
   getStoreys() {
     var storeys = [];
-    for (let storey in this.storeys) {
-      storeys.push(storey);
+    for (let storey in this.storeyViewsPlugin.storeys) {
+      let storeyData = this.storeyViewsPlugin.storeys[storey]
+      storeys.push(storeyData.storeyId);
     }
     return storeys;
   }
@@ -853,33 +872,34 @@ export default class Canvas extends React.Component {
 
   createSectionPlane() {
     this.mouseCreatePlanes = true;
-    /*
-    this.planes.forEach((planeId) =>
-      this.sectionPlanes.destroySectionPlane(planeId)
-    );
-    this.planes = [];*/
+    this.mouseCreateAnnotations = false;
+    this.mouseMeasureDistance = false;
+    this.distanceMeasurements.control.deactivate();
+    window.document.getElementById("canvas").style.cursor = "pointer";
   }
 
   destroySectionPlane() {
-    this.mouseDestroyPlanes = !this.mouseDestroyPlanes;
+    let id = this.sectionPlanes.getShownControl();
+    this.sectionPlanes.destroySectionPlane(id);
   }
 
   measureDistance() {
-    this.mouseMeasureDistance = !this.mouseMeasureDistance;
-    if (this.mouseMeasureDistance) {
-      this.distanceMeasurements.control.activate();
-    } else {
-      this.distanceMeasurements.control.deactivate();
-      this.distanceMeasurements.clear();
-    }
+    this.mouseMeasureDistance = true;
+    this.mouseCreatePlanes = false;
+    this.mouseCreateAnnotations = false;
+    this.distanceMeasurements.control.activate();
+  }
+
+  destroyMeasurements() {
+    this.distanceMeasurements.clear();
   }
 
   createAnnotations() {
     this.mouseCreateAnnotations = true;
-    /*
-    if (!this.mouseCreateAnnotations) {
-      this.annotations.clear();
-    }*/
+    this.mouseMeasureDistance = false;
+    this.mouseCreatePlanes = false;
+    this.distanceMeasurements.control.deactivate();
+    window.document.getElementById("canvas").style.cursor = "pointer";
   }
 
   destroyAnnotation(id) {

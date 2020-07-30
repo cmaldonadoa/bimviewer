@@ -3,13 +3,15 @@ import Sidebar from "./gui/Sidebar";
 import TreeContextMenu from "./gui/TreeContextMenu";
 import Canvas from "./canvas/Canvas";
 import CanvasContextMenu from "./gui/CanvasContextMenu";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 export default class Viewer extends React.Component {
   constructor(props) {
     super(props);
-    this.modelPath = "/models/ifc/"
-    this.modelName = "IFC_Schependomlaan"
     this.state = {
+      metadata: {},
+      modelName: "",
       mounting: true,
       currentEntity: null,
       openTreeContextMenu: null,
@@ -21,26 +23,45 @@ export default class Viewer extends React.Component {
       y: 0,
       annotations: [],
     };
+  }
 
-    var xhttp = new XMLHttpRequest();
-    xhttp.open("GET", `${this.modelPath}${this.modelName}_id.json`, false);
-    xhttp.send();
-    this.xresponse = JSON.parse(xhttp.response);
+  async componentDidMount() {
+    var { hash } = this.props.match.params;
+    var urls = {};
+    await fetch(`https://bimapi.velociti.cl/dev_get_file/${hash}/`, {
+      headers: {
+        Authorization: "public_auth",
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        this.setState({modelName: data.name})
+        urls.model = data.model;
+        urls.metadata = data.metadata;
+        urls.xeokitMetadata = data.xeokit;
+      })
+      .catch((err) => console.error(err));
 
-    this.canvas = new Canvas({
-      allIds: Object.keys(this.xresponse),
-      modelName: this.modelName,
-      modelPath: this.modelPath,
-      updateEntity: (id) => this.updateEntity(id),
-      openTreeContextMenu: (node, x, y, element, state) =>
-        this.openTreeContextMenu(node, x, y, element, state),
-      closeTreeContextMenu: () => this.closeTreeContextMenu(),
-      openCanvasContextMenu: (x, y, element, state) =>
-        this.openCanvasContextMenu(x, y, element, state),
-      closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
-      signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
-      signalMount: () => this.signalMount(),
-    });
+    await fetch(`http://bimviewer.velociti.cl/${urls.metadata}`).then(
+      (res) => {
+        this.setState({metadata: res});
+        this.canvas = new Canvas({
+          allIds: Object.keys(res),
+          modelUrl: `http://bimviewer.velociti.cl/${urls.model}`,
+          metadataUrl: `http://bimviewer.velociti.cl/${urls.xeokitMetadata}`,
+          modelName: this.state.modelName,
+          updateEntity: (id) => this.updateEntity(id),
+          openTreeContextMenu: (node, x, y, element, state) =>
+            this.openTreeContextMenu(node, x, y, element, state),
+          closeTreeContextMenu: () => this.closeTreeContextMenu(),
+          openCanvasContextMenu: (x, y, element, state) =>
+            this.openCanvasContextMenu(x, y, element, state),
+          closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
+          signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
+          signalMount: () => this.signalMount(),
+        });
+      }
+    );
   }
 
   //------------------------------------------------------------------------------------------------------------------
@@ -56,7 +77,7 @@ export default class Viewer extends React.Component {
   // Load tree view
   //------------------------------------------------------------------------------------------------------------------
   mountTree() {
-    this.canvas.mountTree();
+    this.canvas ? this.canvas.mountTree() : (() => {})();
   }
 
   signalMount() {
@@ -66,7 +87,7 @@ export default class Viewer extends React.Component {
   }
 
   unmountTree() {
-    this.canvas.unmountTree();
+    this.canvas ? this.canvas.unmountTree() : (() => {})();
     this.setState({
       mounting: true,
     });
@@ -94,20 +115,19 @@ export default class Viewer extends React.Component {
   }
 
   toggleVisibility(node, flag) {
-    this.canvas.toggleVisibility(node, flag);
+    this.canvas ? this.canvas.toggleVisibility(node, flag) : (() => {})();
   }
 
   toggleXray(node, flag) {
-    console.log(node);
-    this.canvas.toggleXray(node, flag);
+    this.canvas ? this.canvas.toggleXray(node, flag) : (() => {})();
   }
 
   toggleSelect(node, flag) {
-    this.canvas.toggleSelect(node, flag);
+    this.canvas ? this.canvas.toggleSelect(node, flag) : (() => {})();
   }
 
   lookAt(id) {
-    this.canvas.lookAt(id);
+    this.canvas ? this.canvas.lookAt(id) : (() => {})();
   }
 
   isolate(node) {
@@ -137,46 +157,73 @@ export default class Viewer extends React.Component {
   // Tools tab
   //------------------------------------------------------------------------------------------------------------------
   setProjection(mode) {
-    this.canvas.setProjection(mode);
+    this.canvas ? this.canvas.setProjection(mode) : (() => {})();
   }
 
   setFirstPerson(mode) {
-    this.canvas.setFirstPerson(mode);
+    this.canvas ? this.canvas.setFirstPerson(mode) : (() => {})();
   }
 
   getStoreys() {
-    return this.canvas.getStoreys();
+    return this.canvas ? this.canvas.getStoreys() : (() => {})();
   }
 
   setStorey(value) {
-    this.canvas.setStorey(value);
+    this.canvas ? this.canvas.setStorey(value) : (() => {})();
   }
 
   setCameraMode(mode) {
-    this.canvas.setCameraMode(mode);
+    this.canvas ? this.canvas.setCameraMode(mode) : (() => {})();
   }
 
   createSectionPlane() {
-    this.canvas.createSectionPlane();
+    this.canvas ? this.canvas.createSectionPlane() : (() => {})();
+  }
+
+  destroySectionPlane() {
+    this.canvas ? this.canvas.destroySectionPlane() : (() => {})();
   }
 
   fitModel() {
-    this.canvas.fitModel();
+    this.canvas ? this.canvas.fitModel() : (() => {})();
   }
 
   measureDistance() {
-    this.canvas.measureDistance();
+    this.canvas ? this.canvas.measureDistance() : (() => {})();
+  }
+
+  destroyMeasurements() {
+    this.canvas ? this.canvas.destroyMeasurements() : (() => {})();
   }
 
   createAnnotations() {
-    this.canvas.createAnnotations();
+    this.canvas ? this.canvas.createAnnotations() : (() => {})();
   }
 
   takeSnapshot() {
-    this.canvas.takeSnapshot();
+    this.canvas ? this.canvas.takeSnapshot() : (() => {})();
   }
 
-  downloadExcel () {
+  downloadExcel() {
+    var { hash } = this.props.match.params;
+    
+    fetch(`https://bimapi.velociti.cl/dev_get_excel/${hash}/`, {
+      headers: {
+        Authorization: "public_auth",
+      },
+    })
+      .then((res) => res.blob())
+      .then((blob) => {
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = `${this.state.modelName}.xlsx`;
+        a.click();
+        a.remove()
+      })
+      .catch((err) => console.error(err));
+
+/*
     fetch("/php/xml_xls.php", {
       method: "POST",
       body: JSON.stringify({
@@ -193,8 +240,65 @@ export default class Viewer extends React.Component {
         a.download = `${this.modelName}.xlsx`;
         a.click();
       })
-      .catch((err) => console.error(err));
-  };
+      .catch((err) => console.error(err));*/
+  }
+
+  async downloadPDF() {
+    const canvas = document.getElementById("canvas");
+    const annotationsMarkers = document.getElementsByClassName(
+      "annotation-marker"
+    );
+    const annotationsLabels = document.getElementsByClassName(
+      "annotation-label"
+    );
+    var cwidth = canvas.width;
+    var cheight = canvas.height;
+
+    var doc = new jsPDF({
+      orientation: "l",
+      unit: "px",
+      format: [1.3333 * cwidth, 1.3333 * cheight],
+    });
+
+    doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, cwidth, cheight); // Draw model);
+    for (let marker of annotationsMarkers) {
+      let left = parseInt(marker.style.left);
+      let top = parseInt(marker.style.top);
+      await html2canvas(marker, { backgroundColor: "rgba(0,0,0,0)" }).then(
+        (cmarker) => {
+          let width = cmarker.width;
+          let height = cmarker.height;
+          doc.addImage(
+            cmarker.toDataURL("image/png"),
+            "PNG",
+            left,
+            top,
+            width,
+            height
+          );
+        }
+      );
+    }
+    for (let label of annotationsLabels) {
+      let left = parseInt(label.style.left) - 15;
+      let top = parseInt(label.style.top);
+      await html2canvas(label, { backgroundColor: "rgba(0,0,0,0)" }).then(
+        (clabel) => {
+          let width = clabel.width;
+          let height = clabel.height;
+          doc.addImage(
+            clabel.toDataURL("image/png"),
+            "PNG",
+            left,
+            top,
+            width,
+            height
+          );
+        }
+      );
+    }
+    doc.save(this.modelName + ".pdf");
+  }
 
   //------------------------------------------------------------------------------------------------------------------
   // Signals
@@ -210,7 +314,7 @@ export default class Viewer extends React.Component {
     var annotations = [...this.state.annotations];
     var id = annotations[index].id;
     delete annotations[index];
-    this.canvas.destroyAnnotation(id);
+    this.canvas ? this.canvas.destroyAnnotation(id) : (() => {})();
     this.setState((prevState) => ({
       annotations: annotations,
     }));
@@ -221,7 +325,9 @@ export default class Viewer extends React.Component {
     var id = annotations[index].id;
     var newAnnotation = { id: id, name: name, description: description };
     annotations[index] = newAnnotation;
-    this.canvas.updateAnnotation(id, name, description);
+    this.canvas
+      ? this.canvas.updateAnnotation(id, name, description)
+      : (() => {})();
     this.setState((prevState) => ({
       annotations: annotations,
     }));
@@ -230,7 +336,7 @@ export default class Viewer extends React.Component {
   toggleAnnotationVisibility(index) {
     var annotations = [...this.state.annotations];
     var id = annotations[index].id;
-    this.canvas.toggleAnnotationVisibility(id);
+    this.canvas ? this.canvas.toggleAnnotationVisibility(id) : (() => {})();
   }
 
   render() {
@@ -282,7 +388,7 @@ export default class Viewer extends React.Component {
         />
         <Sidebar
           loading={this.state.mounting}
-          metadata={this.xresponse}
+          metadata={this.state.metadata}
           onClick={() => this.closeTreeContextMenu()}
           tree={{
             mount: () => this.mountTree(),
@@ -297,15 +403,18 @@ export default class Viewer extends React.Component {
             setFirstPerson: (mode) => this.setFirstPerson(mode),
             setCameraMode: (mode) => this.setCameraMode(mode),
             createSectionPlane: () => this.createSectionPlane(),
+            destroySectionPlane: () => this.destroySectionPlane(),
             fitModel: () => this.fitModel(),
             measureDistance: () => this.measureDistance(),
+            clearMeasurements: () => this.destroyMeasurements(),
             createAnnotations: () => this.createAnnotations(),
             destroyAnnotation: (index) => this.removeAnnotation(index),
             toggleAnnotation: (index) => this.toggleAnnotationVisibility(index),
             saveAnnotation: (index, name, description) =>
               this.updateAnnotation(index, name, description),
             takeSnapshot: () => this.takeSnapshot(),
-            downloadExcel: () => this.downloadExcel()
+            downloadExcel: () => this.downloadExcel(),
+            downloadPDF: () => this.downloadPDF(),
           }}
         />
       </React.Fragment>
