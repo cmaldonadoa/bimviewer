@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 import Viewer from "./Viewer";
+import ModelUploader from "./ModelUploader";
 
 export default class App extends React.Component {
   render() {
@@ -8,8 +9,13 @@ export default class App extends React.Component {
       <Router basename={process.env.PUBLIC_URL}>
         <Switch>
           <Route
-            path="/"
+            path="/:hash"
             render={(props) => <Viewer {...props} />}
+          />
+          
+          <Route
+            path="/"
+            render={(props) => <ModelUploader {...props} />}
           />
         </Switch>
       </Router>
