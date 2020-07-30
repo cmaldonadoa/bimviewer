@@ -35,16 +35,17 @@ export default class Viewer extends React.Component {
     })
       .then((res) => res.json())
       .then((data) => {
-        this.setState({modelName: data.name})
+        this.setState({ modelName: data.name });
         urls.model = data.model;
         urls.metadata = data.metadata;
         urls.xeokitMetadata = data.xeokit;
       })
       .catch((err) => console.error(err));
 
-    await fetch(`http://bimviewer.velociti.cl/${urls.metadata}`).then(
-      (res) => {
-        this.setState({metadata: res});
+    await fetch(`http://bimviewer.velociti.cl/${urls.metadata}`)
+      .then((res) => res.json())
+      .then((res) => {
+        this.setState({ metadata: res });
         this.canvas = new Canvas({
           allIds: Object.keys(res),
           modelUrl: `http://bimviewer.velociti.cl/${urls.model}`,
@@ -60,8 +61,7 @@ export default class Viewer extends React.Component {
           signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
           signalMount: () => this.signalMount(),
         });
-      }
-    );
+      });
   }
 
   //------------------------------------------------------------------------------------------------------------------
@@ -206,7 +206,7 @@ export default class Viewer extends React.Component {
 
   downloadExcel() {
     var { hash } = this.props.match.params;
-    
+
     fetch(`https://bimapi.velociti.cl/dev_get_excel/${hash}/`, {
       headers: {
         Authorization: "public_auth",
@@ -219,28 +219,9 @@ export default class Viewer extends React.Component {
         a.href = url;
         a.download = `${this.state.modelName}.xlsx`;
         a.click();
-        a.remove()
+        a.remove();
       })
       .catch((err) => console.error(err));
-
-/*
-    fetch("/php/xml_xls.php", {
-      method: "POST",
-      body: JSON.stringify({
-        filename: this.modelName,
-        folder: this.modelPath,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-      .then((res) => {
-        var a = document.createElement("a");
-        a.href = res.file;
-        a.download = `${this.modelName}.xlsx`;
-        a.click();
-      })
-      .catch((err) => console.error(err));*/
   }
 
   async downloadPDF() {
@@ -297,7 +278,7 @@ export default class Viewer extends React.Component {
         }
       );
     }
-    doc.save(this.modelName + ".pdf");
+    doc.save(this.state.modelName + ".pdf");
   }
 
   //------------------------------------------------------------------------------------------------------------------
@@ -340,6 +321,7 @@ export default class Viewer extends React.Component {
   }
 
   render() {
+    console.log("rendering...", Object.keys(this.state.metadata).length);
     return (
       <React.Fragment>
         <CanvasContextMenu
