@@ -232,6 +232,10 @@ export default class Viewer extends React.Component {
     const annotationsLabels = document.getElementsByClassName(
       "annotation-label"
     );
+    const rulersDots = document.getElementsByClassName("viewer-ruler-dot");
+    const rulersWires = document.getElementsByClassName("viewer-ruler-wire");
+    const rulersLabels = document.getElementsByClassName("viewer-ruler-label");
+
     var cwidth = canvas.width;
     var cheight = canvas.height;
 
@@ -241,16 +245,17 @@ export default class Viewer extends React.Component {
       format: [1.3333 * cwidth, 1.3333 * cheight],
     });
 
-    doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, cwidth, cheight); // Draw model);
-    for (let marker of annotationsMarkers) {
-      let left = parseInt(marker.style.left);
-      let top = parseInt(marker.style.top);
-      await html2canvas(marker, { backgroundColor: "rgba(0,0,0,0)" }).then(
-        (cmarker) => {
-          let width = cmarker.width;
-          let height = cmarker.height;
+    doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, cwidth, cheight); // Draw model;
+
+    for (let element of annotationsMarkers) {
+      let left = parseInt(element.style.left);
+      let top = parseInt(element.style.top);
+      await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
+        (canvasElement) => {
+          let width = canvasElement.width;
+          let height = canvasElement.height;
           doc.addImage(
-            cmarker.toDataURL("image/png"),
+            canvasElement.toDataURL("image/png"),
             "PNG",
             left,
             top,
@@ -260,15 +265,73 @@ export default class Viewer extends React.Component {
         }
       );
     }
-    for (let label of annotationsLabels) {
-      let left = parseInt(label.style.left) - 15;
-      let top = parseInt(label.style.top);
-      await html2canvas(label, { backgroundColor: "rgba(0,0,0,0)" }).then(
-        (clabel) => {
-          let width = clabel.width;
-          let height = clabel.height;
+
+    for (let element of annotationsLabels) {
+      let left = parseInt(element.style.left) - 15;
+      let top = parseInt(element.style.top);
+      await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
+        (canvasElement) => {
+          let width = canvasElement.width;
+          let height = canvasElement.height;
           doc.addImage(
-            clabel.toDataURL("image/png"),
+            canvasElement.toDataURL("image/png"),
+            "PNG",
+            left,
+            top,
+            width,
+            height
+          );
+        }
+      );
+    }
+
+    for (let element of rulersDots) {
+      let left = parseInt(element.style.left);
+      let top = parseInt(element.style.top);
+      await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
+        (canvasElement) => {
+          let width = canvasElement.width;
+          let height = canvasElement.height;
+          doc.addImage(
+            canvasElement.toDataURL("image/png"),
+            "PNG",
+            left,
+            top,
+            width,
+            height
+          );
+        }
+      );
+    }
+
+    for (let element of rulersWires) {
+      let left = parseInt(element.style.left);
+      let top = parseInt(element.style.top);
+      await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
+        (canvasElement) => {
+          let width = canvasElement.width;
+          let height = canvasElement.height;
+          doc.addImage(
+            canvasElement.toDataURL("image/png"),
+            "PNG",
+            left,
+            top,
+            width,
+            height
+          );
+        }
+      );
+    }
+
+    for (let element of rulersLabels) {
+      let left = parseInt(element.style.left);
+      let top = parseInt(element.style.top);
+      await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
+        (canvasElement) => {
+          let width = canvasElement.width;
+          let height = canvasElement.height;
+          doc.addImage(
+            canvasElement.toDataURL("image/png"),
             "PNG",
             left,
             top,
