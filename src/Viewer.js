@@ -5,11 +5,14 @@ import Canvas from "./canvas/Canvas";
 import CanvasContextMenu from "./gui/CanvasContextMenu";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import Alert from "@material-ui/lab/Alert";
+import Snackbar from "@material-ui/core/Snackbar";
 
 export default class Viewer extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      loading: false,
       metadata: {},
       modelName: "",
       mounting: true,
@@ -35,33 +38,40 @@ export default class Viewer extends React.Component {
     })
       .then((res) => res.json())
       .then((data) => {
-        this.setState({ modelName: data.name });
-        urls.model = data.model;
-        urls.metadata = data.metadata;
-        urls.xeokitMetadata = data.xeokit;
+        if (data.status === 202) {
+          this.setState({ loading: true });
+        } else {
+          this.setState({ modelName: data.name });
+          urls.model = data.model;
+          urls.metadata = data.metadata;
+          urls.xeokitMetadata = data.xeokit;
+        }
       })
       .catch((err) => console.error(err));
 
-    await fetch(`https://bimviewer.velociti.cl/${urls.metadata}`)
-      .then((res) => res.json())
-      .then((res) => {
-        this.setState({ metadata: res });
-        this.canvas = new Canvas({
-          allIds: Object.keys(res),
-          modelUrl: `https://bimviewer.velociti.cl/${urls.model}`,
-          metadataUrl: `https://bimviewer.velociti.cl/${urls.xeokitMetadata}`,
-          modelName: this.state.modelName,
-          updateEntity: (id) => this.updateEntity(id),
-          openTreeContextMenu: (node, x, y, element, state) =>
-            this.openTreeContextMenu(node, x, y, element, state),
-          closeTreeContextMenu: () => this.closeTreeContextMenu(),
-          openCanvasContextMenu: (x, y, element, state) =>
-            this.openCanvasContextMenu(x, y, element, state),
-          closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
-          signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
-          signalMount: () => this.signalMount(),
+    if (!this.state.loading) {
+      await fetch(`https://bimviewer.velociti.cl/${urls.metadata}`)
+        .then((res) => res.json())
+        .then((res) => {
+          this.setState({ metadata: res });
+          this.canvas = new Canvas({
+            allIds: Object.keys(res),
+            modelUrl: `https://bimviewer.velociti.cl/${urls.model}`,
+            metadataUrl: `https://bimviewer.velociti.cl/${urls.xeokitMetadata}`,
+            modelName: this.state.modelName,
+            updateEntity: (id) => this.updateEntity(id),
+            openTreeContextMenu: (node, x, y, element, state) =>
+              this.openTreeContextMenu(node, x, y, element, state),
+            closeTreeContextMenu: () => this.closeTreeContextMenu(),
+            openCanvasContextMenu: (x, y, element, state) =>
+              this.openCanvasContextMenu(x, y, element, state),
+            closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
+            signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
+            signalMount: () => this.signalMount(),
+          });
+          this.mountTree();
         });
-      });
+    }
   }
 
   //------------------------------------------------------------------------------------------------------------------
@@ -384,9 +394,16 @@ export default class Viewer extends React.Component {
   }
 
   render() {
-    console.log("rendering...", Object.keys(this.state.metadata).length);
     return (
       <React.Fragment>
+        <Snackbar
+          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+          open={this.state.loading}
+        >
+          <Alert elevation={6} variant="filled" severity="error">
+            El modelo aún esta siendo procesado, inténtelo más tarde.
+          </Alert>
+        </Snackbar>
         <CanvasContextMenu
           entity={this.state.openCanvasContextMenu}
           open={this.state.openCanvasContextMenu}
