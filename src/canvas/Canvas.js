@@ -400,7 +400,7 @@ export default class Canvas extends React.Component {
     //------------------------------------------------------------------------------------------------------------------
     this.treeView = new TreeViewPlugin(window.viewer, {
       containerElement: document.getElementById("tree-container"),
-      autoExpandDepth: 0, // Initially expand tree three nodes deep
+      autoExpandDepth: 0,
       autoAddModels: false,
     });
     if (treeExists) {
@@ -413,7 +413,6 @@ export default class Canvas extends React.Component {
       window.model.on("loaded", () => {
         this.treeView.addModel(window.model.id);
         this.loading = false;
-        console.log("signaling")
         this.signalMount();
       });
     }
@@ -605,7 +604,7 @@ export default class Canvas extends React.Component {
   getStoreys() {
     var storeys = [];
     for (let storey in this.storeyViewsPlugin.storeys) {
-      let storeyData = this.storeyViewsPlugin.storeys[storey]
+      let storeyData = this.storeyViewsPlugin.storeys[storey];
       storeys.push(storeyData.storeyId);
     }
     return storeys;
