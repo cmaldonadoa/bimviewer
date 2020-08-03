@@ -4,12 +4,17 @@ import EntityProperties from "./EntityProperties";
 export default class PropertiesContainer extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { metadata: {} };
+    this.state = { metadata: {}, json: {} };
     this.entity = props.entity;
-    this.xresponse = props.metadata;
   }
 
   componentDidUpdate() {
+    if (
+      Object.keys(this.state.json).length === 0 &&
+      Object.keys(this.props.metadata).length > 0
+    ) {
+      this.setState({ json: this.props.metadata });
+    }
     if (this.entity !== this.props.entity) {
       this.entity = this.props.entity;
       var metadata = this.getProperties(this.props.entity);
@@ -19,7 +24,7 @@ export default class PropertiesContainer extends React.Component {
 
   getProperties(id) {
     var tabs = {};
-    var data = this.xresponse[id];
+    var data = this.state.json[id];
     for (var dataKey in data) {
       if (dataKey === "attributes") {
         // Basic information folder
@@ -41,12 +46,14 @@ export default class PropertiesContainer extends React.Component {
             continue;
           }
           if ("xlink:href" in tmpData) {
-            let hrefData = this.xresponse[tmpData["xlink:href"].substring(1)];
+            let hrefData = this.state.json[tmpData["xlink:href"].substring(1)];
             if (!hrefData) {
               continue;
             }
             let attributes = hrefData.attributes;
-            let tabName = attributes.Name ? attributes.Name : `${hrefData.type}`;
+            let tabName = attributes.Name
+              ? attributes.Name
+              : `${hrefData.type}`;
             tabs[tabName] = {};
             tabs[tabName]["IfcType"] = hrefData.type;
             for (let attribute in attributes) {
@@ -86,7 +93,9 @@ export default class PropertiesContainer extends React.Component {
     if (Object.keys(metadata).length === 0 || !this.entity) {
       return (
         <div id="properties-container">
-          <p style={{padding: "1rem"}}>No se ha seleccionado ninguna entidad.</p>
+          <p style={{ padding: "1rem" }}>
+            No se ha seleccionado ninguna entidad.
+          </p>
         </div>
       );
     }
