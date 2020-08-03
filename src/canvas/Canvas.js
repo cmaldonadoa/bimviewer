@@ -372,13 +372,12 @@ export default class Canvas extends React.Component {
             labelShown: true,
             values: {
               // HTML template values
-              glyph: this.annotationsCount,
+              glyph: this.annotationsCount++,
               title: title,
               description: desc,
             },
           });
 
-          this.annotationsCount++;
           this.mouseCreateAnnotations = false;
           this.props.signalNewAnnotation({
             id: id,
@@ -391,6 +390,53 @@ export default class Canvas extends React.Component {
     );
 
     window.viewer = viewer;
+  }
+
+  getAnnotations() {
+    const annotations = this.annotations.annotations;
+    var array = [];
+    for (let annotationId in annotations) {
+      let annotation = annotations[annotationId];
+      let data = {
+        title: annotation.getField("title"),
+        description: annotation.getField("description"),
+        worldPos: annotation.worldPos,
+        entity: annotation.entity.id,
+      };
+      array.push(data);
+    }
+    return array;
+  }
+
+  loadAnnotations(annotations) {
+    const scene = window.viewer.scene
+    for (let annotation of annotations) {
+      const wp = annotation.worldPos
+      const id = "annotation-" + this.annotationsCount;
+      const title = annotation.title;
+      const desc = annotation.description;
+      this.annotations.createAnnotation({
+        id: id,
+        entity: scene.objects[annotations.entity],
+        worldPos: [wp["0"], wp["1"], wp["2"]],
+        occludable: true,
+        labelShown: true,
+        values: {
+          // HTML template values
+          glyph: this.annotationsCount++,
+          title: title,
+          description: desc,
+        },
+      });
+  
+      this.props.signalNewAnnotation({
+        id: id,
+        name: title,
+        description: desc,
+      });
+    }
+
+    console.log(this.annotations)
   }
 
   mountTree() {

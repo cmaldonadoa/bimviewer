@@ -187,7 +187,7 @@ const SidebarOptions = (props) => {
           <StyledListItemButton
             icon={<SaveIcon />}
             label="Guardar"
-            onClick={() => {}}
+            onClick={() => tools.saveAnnotations()}
             className={classes.nested}
           />
         </StyledListItemAccordion>

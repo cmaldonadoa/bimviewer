@@ -70,7 +70,13 @@ export default class Viewer extends React.Component {
             signalMount: () => this.signalMount(),
           });
           this.mountTree();
-        });
+        })
+        .catch((err) => console.error(err));
+
+      await fetch(`https://bimapi.velociti.cl/dev_get_annotations/${hash}`)
+        .then((res) => res.json())
+        .then((res) => this.canvas.loadAnnotations(res))
+        .catch((err) => console.error(err));
     }
   }
 
@@ -387,6 +393,23 @@ export default class Viewer extends React.Component {
     }));
   }
 
+  saveAnnotations() {
+    var { hash } = this.props.match.params;
+    var annotations = this.canvas ? this.canvas.getAnnotations() : [];
+    fetch(`https://bimapi.velociti.cl/dev_save_annotations/${hash}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        annotations: annotations,
+      }),
+    })
+      .then((res) => res.json())
+      .then((res) => console.log(res))
+      .catch((err) => console.error(err));
+  }
+
   toggleAnnotationVisibility(index) {
     var annotations = [...this.state.annotations];
     var id = annotations[index].id;
@@ -474,6 +497,7 @@ export default class Viewer extends React.Component {
             toggleAnnotation: (index) => this.toggleAnnotationVisibility(index),
             saveAnnotation: (index, name, description) =>
               this.updateAnnotation(index, name, description),
+            saveAnnotations: () => this.saveAnnotations(),
             takeSnapshot: () => this.takeSnapshot(),
             downloadExcel: () => this.downloadExcel(),
             downloadPDF: () => this.downloadPDF(),
