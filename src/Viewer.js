@@ -42,14 +42,14 @@ export default class Viewer extends React.Component {
       })
       .catch((err) => console.error(err));
 
-    await fetch(`http://bimviewer.velociti.cl/${urls.metadata}`)
+    await fetch(`https://bimviewer.velociti.cl/${urls.metadata}`)
       .then((res) => res.json())
       .then((res) => {
         this.setState({ metadata: res });
         this.canvas = new Canvas({
           allIds: Object.keys(res),
-          modelUrl: `http://bimviewer.velociti.cl/${urls.model}`,
-          metadataUrl: `http://bimviewer.velociti.cl/${urls.xeokitMetadata}`,
+          modelUrl: `https://bimviewer.velociti.cl/${urls.model}`,
+          metadataUrl: `https://bimviewer.velociti.cl/${urls.xeokitMetadata}`,
           modelName: this.state.modelName,
           updateEntity: (id) => this.updateEntity(id),
           openTreeContextMenu: (node, x, y, element, state) =>
