@@ -28,7 +28,7 @@ function TabPanel(props) {
       className="sidebar-tabpanel"
       {...other}
     >
-      {value === index && <Box p={3}>{children}</Box>}
+      <Box p={3}>{children}</Box>
     </Typography>
   );
 }
@@ -118,31 +118,41 @@ export default function Sidebar(props) {
     setOpen(false);
   };
 
-  const mountTree = (flag) =>
-    flag ? props.tree.mount() : props.tree.unmount();
+  const mountTree = () => props.tree.mount();
+
+  const unmountTree = () => props.tree.unmount();
 
   const handleChange = (event, newValue) => {
     setValue(newValue);
+    /*
+    if (newValue == 0) {
+      mountTree();
+    } else {
+      unmountTree();
+    }*/
+  };
+
+  const onMounted = () => {
+    let newStoreys = [];
+    for (let storeyId of props.tools.getStoreys()) {
+      let data = props.metadata[storeyId];
+      if (data) {
+        let name = data.attributes.Name || "IfcBuildingStorey";
+        newStoreys.push({
+          id: storeyId,
+          name: name,
+        });
+      }
+    }
+    setStoreys(newStoreys);
   };
 
   React.useEffect(() => {
-    mountTree(!value);
-    if (value === 1) {
-      let newStoreys = [];
-      for (let storeyId of props.tools.getStoreys()) {
-        let data = props.metadata[storeyId];
-        if (data) {
-          let name = data.attributes.Name || "IfcBuildingStorey";
-          newStoreys.push({
-            id: storeyId,
-            name: name,
-          });
-        }
-      }
-      setStoreys(newStoreys);
+    if (!props.loading) {
+      onMounted();
     }
-  }, [value]);
-
+  }, [props.loading]);
+  
   React.useEffect(() => {
     setEntity(props.tree.currentEntity);
   }, [props.tree.currentEntity]);
