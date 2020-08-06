@@ -16,13 +16,13 @@ export default class Canvas extends React.Component {
     this.loading = true;
     this.modelName = props.modelName;
 
-    /* Mouse click action */
+    /* Mouse left click action */
     this.mouseCreatePlanes = false;
     this.mouseMeasureDistance = false;
     this.mouseCreateAnnotations = false;
-    this.measureClicks = 0;
+    this.measureClicks = 0; // Counter to disable measure distance creation
 
-    /* Store user changes */
+    /* Local user changes */
     this.visible = props.allIds;
     this.xrayed = [];
     this.selected = [];
@@ -57,6 +57,13 @@ export default class Canvas extends React.Component {
     cameraControl.panRightClick = false;
     cameraControl.doublePickFlyTo = true;
     cameraControl.panInertia = 0;
+    cameraControl.navMode = "orbit";
+    cameraControl.pivoting = true;
+
+    const pivotElement = document.createRange().createContextualFragment("<div class='camera-pivot-marker'></div>").firstChild;
+    document.body.appendChild(pivotElement);
+    cameraControl.pivotElement = pivotElement;
+
     cameraFlight.duration = 1.0;
     cameraFlight.fitFOV = 25;
 
@@ -392,6 +399,9 @@ export default class Canvas extends React.Component {
     window.viewer = viewer;
   }
 
+  //------------------------------------------------------------------------------------------------------------------
+  // Return an array containing the current annotations
+  //------------------------------------------------------------------------------------------------------------------
   getAnnotations() {
     const annotations = this.annotations.annotations;
     var array = [];
@@ -408,6 +418,9 @@ export default class Canvas extends React.Component {
     return array;
   }
 
+  //------------------------------------------------------------------------------------------------------------------
+  // Load previously saved annotations
+  //------------------------------------------------------------------------------------------------------------------
   loadAnnotations(annotations) {
     const scene = window.viewer.scene
     for (let annotation of annotations) {
@@ -435,12 +448,15 @@ export default class Canvas extends React.Component {
         description: desc,
       });
     }
-
-    console.log(this.annotations)
   }
 
   mountTree() {
     let treeExists = Boolean(this.treeView);
+
+    const viewer = window.viewer;
+    const scene = viewer.scene;
+    const model = window.model;
+
     //------------------------------------------------------------------------------------------------------------------
     // Create an IFC structure tree view
     //------------------------------------------------------------------------------------------------------------------
@@ -456,15 +472,12 @@ export default class Canvas extends React.Component {
       //----------------------------------------------------------------------------------------------------------------------
       // Load a model and fit it to view
       //----------------------------------------------------------------------------------------------------------------------
-      window.model.on("loaded", () => {
-        this.treeView.addModel(window.model.id);
+      model.on("loaded", () => {
+        this.treeView.addModel(model.id);
         this.loading = false;
         this.signalMount();
       });
     }
-
-    const viewer = window.viewer;
-    const scene = viewer.scene;
 
     //----------------------------------------------------------------------------------------------------------------------
     // Right clicking a tree node title will open context menu
@@ -657,6 +670,7 @@ export default class Canvas extends React.Component {
   }
 
   setStorey(value) {
+    this.sectionPlanes.setOverviewVisible(false)
     const viewer = window.viewer;
 
     const oldChild = document.getElementById("storey-img");
@@ -672,13 +686,15 @@ export default class Canvas extends React.Component {
       const cameraFlight = viewer.cameraFlight;
       const scene = viewer.scene;
       scene.setObjectsVisible(scene.objectIds, true);
-      cameraControl.navMode = "orbit"; // Disable rotation
+      cameraControl.navMode = "orbit";
+      cameraControl.pivoting = true;
       cameraFlight.flyTo({
         eye: [-2.56, 8.38, 8.27],
         look: [13.44, 3.31, -14.83],
         up: [0.1, 0.98, -0.14],
         projection: "perspective",
       });
+      this.sectionPlanes.setOverviewVisible(true)
       return;
     }
 
@@ -687,11 +703,12 @@ export default class Canvas extends React.Component {
     });
 
     this.storeyViewsPlugin.gotoStoreyCamera(value, {
-      projection: "ortho", // Orthographic projection
-      duration: 0.8, // 2.5 second transition
+      projection: "ortho",
+      duration: 0.8,
       done: () => {
         // Create 2D view
         viewer.cameraControl.navMode = "planView"; // Disable rotation
+        viewer.cameraControl.pivoting = false;
         const storeyMap = this.storeyViewsPlugin.createStoreyMap(value, {
           width: 300,
           format: "png",
@@ -747,6 +764,7 @@ export default class Canvas extends React.Component {
               duration: 1.5,
               done: () => {
                 viewer.cameraControl.navMode = "planView";
+                viewer.cameraControl.pivoting = false;
               },
             });
           }
@@ -892,18 +910,21 @@ export default class Canvas extends React.Component {
         this.mouseZoom = false;
         this.mousePan = false;
         cameraControl.navMode = "orbit";
+        cameraControl.pivoting = true;
         break;
       case "pan":
         cameraControl.pointerEnabled = true;
         this.mouseZoom = false;
         this.mousePan = true;
         cameraControl.navMode = "planView";
+        cameraControl.pivoting = false;
         break;
       case "zoom":
         window.document.getElementById("canvas").style.cursor = "zoom-in";
         cameraControl.pointerEnabled = false;
         this.mouseZoom = true;
         this.mousePan = false;
+        cameraControl.pivoting = false;
         break;
       default:
         window.document.getElementById("canvas").style.cursor = "default";
@@ -911,6 +932,7 @@ export default class Canvas extends React.Component {
         this.mouseZoom = false;
         this.mousePan = false;
         cameraControl.navMode = "orbit";
+        cameraControl.pivoting = true;
         break;
     }
   }
