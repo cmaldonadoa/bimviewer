@@ -118,21 +118,11 @@ export default function Sidebar(props) {
     setOpen(false);
   };
 
-  const mountTree = () => props.tree.mount();
-
-  const unmountTree = () => props.tree.unmount();
-
   const handleChange = (event, newValue) => {
     setValue(newValue);
-    /*
-    if (newValue == 0) {
-      mountTree();
-    } else {
-      unmountTree();
-    }*/
   };
 
-  const onMounted = () => {
+  const onMounted = React.useCallback(() => {
     let newStoreys = [];
     for (let storeyId of props.tools.getStoreys()) {
       let data = props.metadata[storeyId];
@@ -145,13 +135,13 @@ export default function Sidebar(props) {
       }
     }
     setStoreys(newStoreys);
-  };
+  }, [props.metadata, props.tools]);
 
   React.useEffect(() => {
     if (!props.loading) {
       onMounted();
     }
-  }, [props.loading]);
+  }, [onMounted, props.loading]);
   
   React.useEffect(() => {
     setEntity(props.tree.currentEntity);
