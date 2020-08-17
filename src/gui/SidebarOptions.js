@@ -35,17 +35,21 @@ const SidebarOptions = (props) => {
   const classes = useStyles();
   const [view, setView] = React.useState("perspective");
   const [control, setControl] = React.useState("orbit");
+  const [openStorey, setOpenStorey] = React.useState(false);
+  const [storeyModelType, setStoreyModelType] = React.useState("");
+  const [storeyModel, setStoreyModel] = React.useState("");
   const [storey, setStorey] = React.useState("");
   const [fpState, setFpState] = React.useState(false);
-  const [openAnotations, setOpenAnotations] = React.useState(false);
+  const [borderState, setBorderState] = React.useState(true);
+  const [openAnnotations, setOpenAnnotations] = React.useState(false);
   const [openMeasurements, setOpenMeasurements] = React.useState(false);
   const [openSectionPlanes, setOpenSectionPlanes] = React.useState(false);
   const setOpen = props.secondDrawer.setOpen;
   const setContent = props.secondDrawer.setContent;
   const tools = props.tools;
 
-  const handleOpenAnotations = () => {
-    setOpenAnotations(!openAnotations);
+  const handleOpenAnnotations = () => {
+    setOpenAnnotations(!openAnnotations);
   };
 
   const handleOpenMeasurements = () => {
@@ -56,15 +60,33 @@ const SidebarOptions = (props) => {
     setOpenSectionPlanes(!openSectionPlanes);
   };
 
+  const handleOpenStorey = () => {
+    setOpenStorey(!openStorey);
+  };
+
   const handleStoreyChange = (event) => {
     let newStorey = event.target.value;
     setStorey(newStorey);
     tools.setStorey(newStorey);
   };
 
+  const handleStoreyModelChange = (event) => {
+    let newModel = event.target.value;
+    setStoreyModel(newModel);
+    if (!newModel) {
+      setStorey("");
+      tools.setStorey("");
+    }
+  };
+
   const handleFpChange = (event) => {
     setFpState(!fpState);
-    tools.toggleFirstPerson(!fpState);
+    tools.setFirstPerson(!fpState);
+  };
+
+  const handleBorderState = (event) => {
+    setBorderState(!borderState);
+    tools.setEdges(!borderState);
   };
 
   const handleViewChange = (event, newView) => {
@@ -86,14 +108,13 @@ const SidebarOptions = (props) => {
     setContent(content);
   };
 
-
-
   return (
     <div className={classes.root}>
       <List component="nav">
         <StyledListItemToggleButton
           label={"Control"}
           value={control}
+          exclusive={true}
           onChange={handleControlChange}
           options={[
             {
@@ -115,6 +136,7 @@ const SidebarOptions = (props) => {
           label={"Vista"}
           value={view}
           onChange={handleViewChange}
+          exclusive={true}
           options={[
             {
               label: "Perspectiva",
@@ -133,22 +155,49 @@ const SidebarOptions = (props) => {
           onChange={handleFpChange}
         />
 
-        <Divider />
-
-        <StyledListItemSelect
-          label="Ver piso"
-          onChange={handleStoreyChange}
-          value={storey}
-          options={props.storeys.map((storey) => ({
-            value: storey.id,
-            label: storey.name,
-          }))}
+        <StyledListItemSwitch
+          label="Bordes"
+          checked={borderState}
+          onChange={handleBorderState}
         />
 
+        <Divider />
+
+        <StyledListItemAccordion
+          label={"Ver piso"}
+          open={openStorey}
+          onClick={handleOpenStorey}
+        >
+          <StyledListItemSelect
+            label="Modelo"
+            onChange={handleStoreyModelChange}
+            value={storeyModel}
+            className={classes.nested}
+            options={Object.keys(props.storeys).map((modelId) => ({
+              value: modelId,
+              label: tools.getModelName(modelId),
+            }))}
+          />
+
+          <StyledListItemSelect
+            label="Piso"
+            onChange={handleStoreyChange}
+            value={storey}
+            className={classes.nested}
+            options={
+              storeyModel
+                ? props.storeys[storeyModel].map((storey) => ({
+                    value: storey.id,
+                    label: storey.name,
+                  }))
+                : []
+            }
+          />
+        </StyledListItemAccordion>
         <StyledListItemAccordion
           label={"Anotaciones"}
-          open={openAnotations}
-          onClick={handleOpenAnotations}
+          open={openAnnotations}
+          onClick={handleOpenAnnotations}
         >
           <StyledListItemButton
             icon={<AddIcon />}
@@ -235,7 +284,10 @@ const SidebarOptions = (props) => {
           onClick={() => tools.fitModel()}
         />
 
-        <StyledListItemButton label="Mostar todo" onClick={() => {}} />
+        <StyledListItemButton
+          label="Mostrar todo"
+          onClick={() => tools.showAll()}
+        />
 
         <Divider />
 

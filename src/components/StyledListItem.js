@@ -16,9 +16,23 @@ import { makeStyles } from "@material-ui/core/styles";
 import Typography from "@material-ui/core/Typography";
 
 const useStyles = makeStyles((theme) => ({
+  noPaddingY: {
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+  toggleButtonGroup: {
+    minWidth: 220,
+    maxWidth: 220,
+  },
+  toggleButton: {
+    width: ({ btnWidth }) => `${btnWidth}%`,
+  },
   formControl: {
     margin: theme.spacing(1),
     minWidth: 220,
+    maxWidth: 220,
+    marginBottom: 6,
+    marginTop: 6,
   },
   icon: {
     minWidth: "40px",
@@ -47,6 +61,10 @@ const StyledListItemToggleButton = (props) => {
   const onChange = props.onChange;
   const value = props.value;
   const options = props.options;
+  const exclusive = props.exclusive;
+  let n = options.length;
+  let btnWidth = 100 / n;
+  const classes = useStyles({ btnWidth });
 
   return (
     <ListItem>
@@ -55,11 +73,13 @@ const StyledListItemToggleButton = (props) => {
         <ToggleButtonGroup
           size="small"
           value={value}
-          exclusive
+          exclusive={exclusive}
           onChange={onChange}
+          className={classes.toggleButtonGroup}
         >
           {options.map((option) => (
             <ToggleButton
+              className={classes.toggleButton}
               key={option.value}
               value={option.value}
             >
@@ -91,9 +111,10 @@ const StyledListItemSelect = (props) => {
   const onChange = props.onChange;
   const value = props.value;
   const options = props.options;
+  const className = props.className;
 
   return (
-    <ListItem>
+    <ListItem className={`${classes.noPaddingY} ${className}`}>
       <ListItemText primary={label} />
       <FormControl className={classes.formControl}>
         <Select value={value} displayEmpty onChange={onChange}>

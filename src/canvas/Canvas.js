@@ -13,7 +13,7 @@ export default class Canvas extends React.Component {
   constructor(props) {
     super(props);
     this.mounted = false;
-    this.loading = true;
+    this.loading = 1;
     this.modelName = props.modelName;
 
     /* Mouse left click action */
@@ -21,13 +21,9 @@ export default class Canvas extends React.Component {
     this.mouseMeasureDistance = false;
     this.mouseCreateAnnotations = false;
     this.measureClicks = 0; // Counter to disable measure distance creation
-
-    /* Local user changes */
-    this.visible = props.allIds;
-    this.xrayed = [];
-    this.selected = [];
     this.planesCounter = 0;
-    this.measureClicks = 0;
+
+    this.modelTracker = null;
 
     /* GUI functions */
     this.updateEntity = props.updateEntity;
@@ -36,8 +32,11 @@ export default class Canvas extends React.Component {
     this.openCanvasContextMenu = props.openCanvasContextMenu;
     this.closeCanvasContextMenu = props.closeCanvasContextMenu;
     this.signalMount = props.signalMount;
+  }
 
-    this.build();
+  setModelTracker(modelTracker) {
+    this.modelTracker = modelTracker;
+    this.loading = this.modelTracker.countModels();
   }
 
   build() {
@@ -60,21 +59,26 @@ export default class Canvas extends React.Component {
     cameraControl.navMode = "orbit";
     cameraControl.pivoting = true;
 
-    const pivotElement = document.createRange().createContextualFragment("<div class='camera-pivot-marker'></div>").firstChild;
+    const pivotElement = document
+      .createRange()
+      .createContextualFragment("<div class='camera-pivot-marker'></div>")
+      .firstChild;
     document.body.appendChild(pivotElement);
     cameraControl.pivotElement = pivotElement;
+    const aabb = scene.getAABB(scene.visibleObjectIds);
+    cameraControl.pivotPos = math.getAABB3Center(aabb, math.vec3());
 
     cameraFlight.duration = 1.0;
-    cameraFlight.fitFOV = 25;
+    cameraFlight.fitFOV = 45;
 
     camera.eye = [-2.56, 8.38, 8.27];
     camera.look = [13.44, 3.31, -14.83];
     camera.up = [0.1, 0.98, -0.14];
 
-    scene.xrayMaterial.fillAlpha = 0.06;
-    scene.xrayMaterial.fillColor = [0, 0, 0];
+    scene.xrayMaterial.fillAlpha = 0.2;
+    scene.xrayMaterial.fillColor = [0.25, 0.25, 0.25];
     scene.xrayMaterial.edgeAlpha = 1;
-    scene.xrayMaterial.edgeColor = [0.7, 0.7, 0.7];
+    scene.xrayMaterial.edgeColor = [0.13, 0.13, 0.13];
 
     scene.highlightMaterial.fillAlpha = 0.2;
     scene.highlightMaterial.fillColor = [1, 1, 1];
@@ -85,18 +89,18 @@ export default class Canvas extends React.Component {
     scene.selectedMaterial.fillColor = [0, 1, 1];
 
     //------------------------------------------------------------------------------------------------------------------
-    // Load model
+    // Load models
     //------------------------------------------------------------------------------------------------------------------
     const gltfLoader = new GLTFLoaderPlugin(viewer);
 
-    const model = gltfLoader.load({
-      id: "model",
-      src: this.props.modelUrl,
-      metaModelSrc: this.props.metadataUrl,
-      edges: true,
+    this.modelTracker.allModels().forEach((data) => {
+      gltfLoader.load({
+        id: data.id,
+        src: data.modelURL,
+        metaModelSrc: data.metadataURL,
+        edges: true,
+      });
     });
-
-    window.model = model;
 
     //------------------------------------------------------------------------------------------------------------------
     // Handle zoom with left click
@@ -195,6 +199,22 @@ export default class Canvas extends React.Component {
       "mousedown",
       (coords) => {
         if (scene.input.mouseDownRight && !this.mouseZoom) {
+          let x = coords[0];
+          let y = coords[1];
+
+          let visible = this.modelTracker.getVisible();
+          let xrayed = this.modelTracker.getXRayed();
+          let selected = this.modelTracker.getSelected();
+
+          let selectionVisible = visible.filter((x) => selected.includes(x));
+          let selectionXRayed = xrayed.filter((x) => selected.includes(x));
+
+          this.openCanvasContextMenu(x, y, {
+            visible: selectionVisible.length > selected.length / 2,
+            xrayed: selectionXRayed.length > selected.length / 2,
+          });
+
+          /*
           var hit = scene.pick({
             canvasPos: coords,
           });
@@ -202,10 +222,7 @@ export default class Canvas extends React.Component {
           if (hit) {
             var entity = hit.entity;
             var objectId = entity.id;
-            this.selected = [objectId];
 
-            scene.setObjectsSelected(scene.objectIds, false);
-            scene.setObjectsSelected(this.selected, true);
 
             let x = coords[0];
             let y = coords[1];
@@ -215,14 +232,14 @@ export default class Canvas extends React.Component {
               xrayed: this.xrayed.includes(objectId),
               selected: this.selected.includes(objectId),
             });
-          }
+          }*/
         }
       },
       this
     );
 
     //------------------------------------------------------------------------------------------------------------------
-    // Click an object to show IFC data and the tree node
+    // Click an object to show IFC data and the tree node, highlight it and set pivot
     //------------------------------------------------------------------------------------------------------------------
     cameraControl.on(
       "picked",
@@ -235,30 +252,35 @@ export default class Canvas extends React.Component {
         if (hit) {
           var entity = hit.entity;
           var objectId = entity.id;
+          const prevSelected = this.modelTracker.getSelected();
 
           if (scene.input.ctrlDown) {
             if (entity.selected) {
-              let idx = this.selected.indexOf(objectId);
-              this.selected.splice(idx, 1);
+              this.modelTracker.filterSelected((x) => x !== objectId);
             } else {
-              this.selected.push(objectId);
+              this.modelTracker.setSelected(objectId);
             }
           } else {
-            if (entity.selected) {
-              this.selected = [];
-            } else {
-              this.selected = [objectId];
+            this.modelTracker.filterSelected((x) => false);
+            if (!entity.selected) {
+              this.modelTracker.setSelected(objectId);
+              if (this.mounted) {
+                this.treeView.showNode(objectId);
+                this.updateEntity(objectId);
+                this.closeTreeContextMenu();
+              }
             }
           }
 
-          scene.setObjectsSelected(scene.objectIds, false);
-          scene.setObjectsSelected(this.selected, true);
+          const aabb = scene.getAABB(
+            this.modelTracker.getSelected().length > 0
+              ? this.modelTracker.getSelected()
+              : scene.visibleObjectIds
+          );
+          cameraControl.pivotPos = math.getAABB3Center(aabb, math.vec3());
 
-          if (this.mounted) {
-            this.treeView.showNode(objectId);
-            this.updateEntity(objectId);
-            this.closeTreeContextMenu();
-          }
+          scene.setObjectsSelected(prevSelected, false);
+          scene.setObjectsSelected(this.modelTracker.getSelected(), true);
         }
       },
       this
@@ -370,7 +392,7 @@ export default class Canvas extends React.Component {
 
         if (hit && this.mouseCreateAnnotations) {
           const id = "annotation-" + this.annotationsCount;
-          const title = "Sin título " + this.annotationsCount;
+          const title = "Sin título";
           const desc = "Sin descripción";
           this.annotations.createAnnotation({
             id: id,
@@ -396,7 +418,32 @@ export default class Canvas extends React.Component {
       this
     );
 
+    scene.input.on(
+      "keydown",
+      (keyCode) => {
+        if (keyCode === scene.input.KEY_ESCAPE) {
+          // Disable current measurement
+          this.measureClicks = 0;
+          this.mouseCreatePlanes = false;
+          var cursor = "default";
+          if (this.mousePan) {
+            cursor = "move";
+          } else if (this.mouseZoom) {
+            cursor = "zoom-in";
+          }
+          this.distanceMeasurements.control.deactivate();
+          window.document.getElementById("canvas").style.cursor = cursor;
+
+          // Cancel selection
+          this.modelTracker.filterSelected((x) => false);
+          scene.setObjectsSelected(scene.objectIds, false);
+        }
+      },
+      this
+    );
+
     window.viewer = viewer;
+    this.mountTree();
   }
 
   //------------------------------------------------------------------------------------------------------------------
@@ -422,9 +469,9 @@ export default class Canvas extends React.Component {
   // Load previously saved annotations
   //------------------------------------------------------------------------------------------------------------------
   loadAnnotations(annotations) {
-    const scene = window.viewer.scene
+    const scene = window.viewer.scene;
     for (let annotation of annotations) {
-      const wp = annotation.worldPos
+      const wp = annotation.worldPos;
       const id = "annotation-" + this.annotationsCount;
       const title = annotation.title;
       const desc = annotation.description;
@@ -441,7 +488,7 @@ export default class Canvas extends React.Component {
           description: desc,
         },
       });
-  
+
       this.props.signalNewAnnotation({
         id: id,
         name: title,
@@ -451,11 +498,8 @@ export default class Canvas extends React.Component {
   }
 
   mountTree() {
-    let treeExists = Boolean(this.treeView);
-
     const viewer = window.viewer;
     const scene = viewer.scene;
-    const model = window.model;
 
     //------------------------------------------------------------------------------------------------------------------
     // Create an IFC structure tree view
@@ -465,19 +509,20 @@ export default class Canvas extends React.Component {
       autoExpandDepth: 0,
       autoAddModels: false,
     });
-    if (treeExists) {
-      this.treeView.addModel("model");
-      this.signalMount();
-    } else {
-      //----------------------------------------------------------------------------------------------------------------------
-      // Load a model and fit it to view
-      //----------------------------------------------------------------------------------------------------------------------
+
+    //----------------------------------------------------------------------------------------------------------------------
+    // Load models on tree
+    //----------------------------------------------------------------------------------------------------------------------
+    scene.modelIds.forEach((modelId) => {
+      const model = scene.models[modelId];
       model.on("loaded", () => {
         this.treeView.addModel(model.id);
-        this.loading = false;
-        this.signalMount();
+        --this.loading;
+        if (!this.loading) {
+          this.signalMount();
+        }
       });
-    }
+    });
 
     //----------------------------------------------------------------------------------------------------------------------
     // Right clicking a tree node title will open context menu
@@ -495,9 +540,9 @@ export default class Canvas extends React.Component {
           event.clientY,
           event.currentTarget,
           {
-            visible: this.visible.includes(id),
-            xrayed: this.xrayed.includes(id),
-            selected: this.selected.includes(id),
+            visible: this.modelTracker.isVisible(id),
+            xrayed: this.modelTracker.isXRayed(id),
+            selected: this.modelTracker.isSelected(id),
           }
         );
       },
@@ -527,10 +572,12 @@ export default class Canvas extends React.Component {
           this.updateEntity(objectIds[0]);
         }
 
+        const xrayed = this.modelTracker.getXRayed();
+
         setTimeout(() => {
           scene.setObjectsXRayed(scene.objectIds, false);
-          if (this.xrayed.length > 0) {
-            scene.setObjectsXRayed(this.xrayed, true);
+          if (xrayed.length > 0) {
+            scene.setObjectsXRayed(xrayed, true);
           }
         }, 800);
       },
@@ -547,98 +594,116 @@ export default class Canvas extends React.Component {
   //----------------------------------------------------------------------------------------------------------------------
   // Context menu handlers
   //----------------------------------------------------------------------------------------------------------------------
-  toggleVisibility(node, searchNodes) {
+  toggleVisibility(nodes, searchNodes) {
+    nodes = Array.isArray(nodes) ? nodes : [nodes];
     const viewer = window.viewer;
     const scene = viewer.scene;
-    var objectIds = [];
-    var nodeId = 0;
+    var objectIds = searchNodes ? [] : nodes;
 
     if (searchNodes) {
-      nodeId = node.objectId;
-      this.treeView.withNodeTree(node, (treeViewNode) => {
-        if (treeViewNode.objectId) {
-          objectIds.push(treeViewNode.objectId);
-        }
-      });
-    } else {
-      nodeId = node.id;
-      objectIds.push(node.id);
+      for (let node of nodes) {
+        this.treeView.withNodeTree(node, (treeViewNode) => {
+          if (treeViewNode.objectId) {
+            objectIds.push(treeViewNode.objectId);
+          }
+        });
+      }
     }
 
-    if (this.visible.includes(nodeId)) {
+    const visible = this.modelTracker.getVisible();
+    const countVisible = [...visible.filter((x) => objectIds.includes(x))]
+      .length;
+
+    if (countVisible > objectIds.length / 2) {
       scene.setObjectsVisible(objectIds, false);
-      this.visible = this.visible.filter((x) => !objectIds.includes(x));
+      this.modelTracker.filterVisible((x) => !objectIds.includes(x));
     } else {
       scene.setObjectsVisible(objectIds, true);
-      this.visible = [...new Set([...this.visible, ...objectIds])];
+      this.modelTracker.setVisible(objectIds, true);
     }
   }
 
-  toggleXray(node, searchNodes) {
+  toggleXray(nodes, searchNodes) {
+    nodes = Array.isArray(nodes) ? nodes : [nodes];
     const viewer = window.viewer;
     const scene = viewer.scene;
-    var objectIds = [];
-    var nodeId = 0;
+    var objectIds = searchNodes ? [] : nodes;
 
     if (searchNodes) {
-      nodeId = node.objectId;
-      this.treeView.withNodeTree(node, (treeViewNode) => {
-        if (treeViewNode.objectId) {
-          objectIds.push(treeViewNode.objectId);
-        }
-      });
-    } else {
-      nodeId = node.id;
-      objectIds.push(node.id);
+      for (let node of nodes) {
+        this.treeView.withNodeTree(node, (treeViewNode) => {
+          if (treeViewNode.objectId) {
+            objectIds.push(treeViewNode.objectId);
+          }
+        });
+      }
     }
 
-    if (this.xrayed.includes(nodeId)) {
+    const xrayed = this.modelTracker.getXRayed();
+    const countXrayed = [...xrayed.filter((x) => objectIds.includes(x))].length;
+
+    if (countXrayed > objectIds.length / 2) {
       scene.setObjectsXRayed(objectIds, false);
-      this.xrayed = this.xrayed.filter((x) => !objectIds.includes(x));
+      this.modelTracker.filterXRayed((x) => !objectIds.includes(x));
     } else {
       scene.setObjectsXRayed(objectIds, true);
-      this.xrayed = [...new Set([...this.xrayed, ...objectIds])];
+      this.modelTracker.setXRayed(objectIds, true);
     }
   }
 
-  toggleSelect(node, searchNodes) {
+  toggleSelect(nodes, searchNodes) {
+    nodes = Array.isArray(nodes) ? nodes : [nodes];
     const viewer = window.viewer;
     const scene = viewer.scene;
-    var objectIds = [];
-    var nodeId = 0;
+    var objectIds = searchNodes ? [] : nodes;
 
     if (searchNodes) {
-      nodeId = node.objectId;
-      this.treeView.withNodeTree(node, (treeViewNode) => {
-        if (treeViewNode.objectId) {
-          objectIds.push(treeViewNode.objectId);
-        }
-      });
-    } else {
-      nodeId = node.id;
-      objectIds.push(node.id);
+      for (let node of nodes) {
+        this.treeView.withNodeTree(node, (treeViewNode) => {
+          if (treeViewNode.objectId) {
+            objectIds.push(treeViewNode.objectId);
+          }
+        });
+      }
     }
 
-    if (this.selected.includes(nodeId)) {
+    const selected = this.modelTracker.getSelected();
+    const countSelected = [...selected.filter((x) => objectIds.includes(x))]
+      .length;
+
+    if (countSelected > objectIds.length / 2) {
       scene.setObjectsSelected(objectIds, false);
-      this.selected = this.selected.filter((x) => !objectIds.includes(x));
+      this.modelTracker.filterSelected((x) => !objectIds.includes(x));
     } else {
       scene.setObjectsSelected(objectIds, true);
-      this.selected = [...new Set([...this.selected, ...objectIds])];
+      this.modelTracker.setSelected(objectIds, true);
     }
   }
 
-  lookAt(id) {
+  lookAt() {
     const viewer = window.viewer;
     const scene = viewer.scene;
-    viewer.cameraFlight.flyTo({
-      aabb: scene.getAABB(id),
-    });
+    const aabb = scene.getAABB(
+      this.modelTracker.getSelected().length > 0
+        ? this.modelTracker.getSelected()
+        : scene.visibleObjectIds
+    );
+    const pos = math.getAABB3Center(aabb, math.vec3());
+    viewer.cameraFlight.flyTo(pos);
   }
 
   //----------------------------------------------------------------------------------------------------------------------
   // Tools tab handlers
   //----------------------------------------------------------------------------------------------------------------------
+
+  setEdges(state) {
+    const viewer = window.viewer;
+    const scene = viewer.scene;
+    scene.modelIds.forEach((modelId) => {
+      const model = scene.models[modelId];
+      model.edges = state;
+    });
+  }
 
   setProjection(mode) {
     const viewer = window.viewer;
@@ -655,22 +720,34 @@ export default class Canvas extends React.Component {
   fitModel() {
     const viewer = window.viewer;
     const scene = viewer.scene;
+    const aabb = scene.getAABB(scene.visibleObjectIds);
     viewer.cameraFlight.flyTo({
-      aabb: scene.models["model"].aabb,
+      aabb: aabb,
     });
   }
 
+  showAll() {
+    const viewer = window.viewer;
+    const scene = viewer.scene;
+    this.modelTracker.resetVisible();
+    scene.setObjectsVisible(this.modelTracker.getVisible(), true);
+  }
+
   getStoreys() {
-    var storeys = [];
-    for (let storey in this.storeyViewsPlugin.storeys) {
-      let storeyData = this.storeyViewsPlugin.storeys[storey];
-      storeys.push(storeyData.storeyId);
+    var storeys = {};
+    const modelStoreys = this.storeyViewsPlugin.modelStoreys;
+    for (let modelId in modelStoreys) {
+      storeys[modelId] = [];
+      let thisStoreys = modelStoreys[modelId];
+      for (let storeyId in thisStoreys) {
+        storeys[modelId].push(storeyId);
+      }
     }
     return storeys;
   }
 
   setStorey(value) {
-    this.sectionPlanes.setOverviewVisible(false)
+    this.sectionPlanes.setOverviewVisible(false);
     const viewer = window.viewer;
 
     const oldChild = document.getElementById("storey-img");
@@ -694,7 +771,7 @@ export default class Canvas extends React.Component {
         up: [0.1, 0.98, -0.14],
         projection: "perspective",
       });
-      this.sectionPlanes.setOverviewVisible(true)
+      this.sectionPlanes.setOverviewVisible(true);
       return;
     }
 

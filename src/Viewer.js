@@ -2,6 +2,7 @@ import React from "react";
 import Sidebar from "./gui/Sidebar";
 import TreeContextMenu from "./gui/TreeContextMenu";
 import Canvas from "./canvas/Canvas";
+import ModelTracker from "./canvas/ModelTracker";
 import CanvasContextMenu from "./gui/CanvasContextMenu";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -13,7 +14,7 @@ export default class Viewer extends React.Component {
     super(props);
     this.state = {
       loading: false,
-      metadata: {},
+      currentModel: "",
       modelName: "",
       mounting: true,
       currentEntity: null,
@@ -26,11 +27,24 @@ export default class Viewer extends React.Component {
       y: 0,
       annotations: [],
     };
+    this.modelTracker = new ModelTracker();
+    this.canvas = new Canvas({
+      modelName: props.match.params.hash,
+      updateEntity: (id) => this.updateEntity(id),
+      openTreeContextMenu: (node, x, y, element, state) =>
+        this.openTreeContextMenu(node, x, y, element, state),
+      closeTreeContextMenu: () => this.closeTreeContextMenu(),
+      openCanvasContextMenu: (x, y, element, state) =>
+        this.openCanvasContextMenu(x, y, element, state),
+      closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
+      signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
+      signalMount: () => this.signalMount(),
+    });
   }
 
   async componentDidMount() {
     var { hash } = this.props.match.params;
-    var urls = {};
+    var urls = [];
     await fetch(`https://bimapi.velociti.cl/dev_get_file/${hash}/`, {
       headers: {
         Authorization: "public_auth",
@@ -41,37 +55,41 @@ export default class Viewer extends React.Component {
         if (data.status === 202) {
           this.setState({ loading: true });
         } else {
-          this.setState({ modelName: data.name });
-          urls.model = data.model;
-          urls.metadata = data.metadata;
-          urls.xeokitMetadata = data.xeokit;
+          let files = data.files;
+          this.setState({ modelName: hash });
+          files.forEach((file) => {
+            let url = {
+              name: file.filename,
+              model: file.gltf,
+              metadata: file.metadata,
+              xeokitMetadata: file.xeokit,
+              tag: file.tag,
+            };
+            urls.push(url);
+          });
         }
       })
       .catch((err) => console.error(err));
 
     if (!this.state.loading) {
-      await fetch(`https://bimviewer.velociti.cl/${urls.metadata}`)
-        .then((res) => res.json())
-        .then((res) => {
-          this.setState({ metadata: res });
-          this.canvas = new Canvas({
-            allIds: Object.keys(res),
-            modelUrl: `https://bimviewer.velociti.cl/${urls.model}`,
-            metadataUrl: `https://bimviewer.velociti.cl/${urls.xeokitMetadata}`,
-            modelName: this.state.modelName,
-            updateEntity: (id) => this.updateEntity(id),
-            openTreeContextMenu: (node, x, y, element, state) =>
-              this.openTreeContextMenu(node, x, y, element, state),
-            closeTreeContextMenu: () => this.closeTreeContextMenu(),
-            openCanvasContextMenu: (x, y, element, state) =>
-              this.openCanvasContextMenu(x, y, element, state),
-            closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
-            signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
-            signalMount: () => this.signalMount(),
-          });
-          this.mountTree();
-        })
-        .catch((err) => console.error(err));
+      for (var url of urls) {
+        let { tag, model, xeokitMetadata } = url;
+        await fetch(`https://bimviewer.velociti.cl/${url.metadata}`)
+          .then((res) => res.json())
+          .then((res) => {
+            this.modelTracker.addModel(
+              url.name,
+              tag,
+              res,
+              model,
+              xeokitMetadata
+            );
+          })
+          .catch((err) => console.error(err));
+      }
+
+      this.canvas.setModelTracker(this.modelTracker);
+      this.canvas.build();
 
       await fetch(`https://bimapi.velociti.cl/dev_get_annotations/${hash}`)
         .then((res) => res.json())
@@ -153,10 +171,10 @@ export default class Viewer extends React.Component {
   //------------------------------------------------------------------------------------------------------------------
   // Canvas context menu
   //------------------------------------------------------------------------------------------------------------------
-  openCanvasContextMenu(x, y, element, state) {
+  openCanvasContextMenu(x, y, state) {
     this.setState({
-      openCanvasContextMenu: element,
-      entity: element,
+      openCanvasContextMenu: true,
+      entity: this.modelTracker.getSelected(),
       x: x,
       y: y,
       canvasContextState: state,
@@ -165,13 +183,17 @@ export default class Viewer extends React.Component {
 
   closeCanvasContextMenu() {
     this.setState({
-      openCanvasContextMenu: null,
+      openCanvasContextMenu: false,
     });
   }
 
   //------------------------------------------------------------------------------------------------------------------
   // Tools tab
   //------------------------------------------------------------------------------------------------------------------
+  setEdges(state) {
+    this.canvas ? this.canvas.setEdges(state) : (() => {})();
+  }
+
   setProjection(mode) {
     this.canvas ? this.canvas.setProjection(mode) : (() => {})();
   }
@@ -202,6 +224,14 @@ export default class Viewer extends React.Component {
 
   fitModel() {
     this.canvas ? this.canvas.fitModel() : (() => {})();
+  }
+
+  showAll() {
+    this.canvas ? this.canvas.showAll() : (() => {})();
+  }
+
+  getModelName(id) {
+    return this.modelTracker.getModelName(id);
   }
 
   measureDistance() {
@@ -428,7 +458,7 @@ export default class Viewer extends React.Component {
           </Alert>
         </Snackbar>
         <CanvasContextMenu
-          entity={this.state.openCanvasContextMenu}
+          entity={this.state.entity}
           open={this.state.openCanvasContextMenu}
           close={() => this.closeCanvasContextMenu()}
           reopen={(target) =>
@@ -473,7 +503,7 @@ export default class Viewer extends React.Component {
         />
         <Sidebar
           loading={this.state.mounting}
-          metadata={this.state.metadata}
+          metadata={this.modelTracker.getMetadata()}
           onClick={() => this.closeTreeContextMenu()}
           tree={{
             mount: () => this.mountTree(),
@@ -484,6 +514,7 @@ export default class Viewer extends React.Component {
           tools={{
             getStoreys: () => this.getStoreys(),
             setStorey: (value) => this.setStorey(value),
+            setEdges: (mode) => this.setEdges(mode),
             setProjection: (mode) => this.setProjection(mode),
             setFirstPerson: (mode) => this.setFirstPerson(mode),
             setCameraMode: (mode) => this.setCameraMode(mode),
@@ -501,6 +532,8 @@ export default class Viewer extends React.Component {
             takeSnapshot: () => this.takeSnapshot(),
             downloadExcel: () => this.downloadExcel(),
             downloadPDF: () => this.downloadPDF(),
+            showAll: () => this.showAll(),
+            getModelName: (id) => this.getModelName(id),
           }}
         />
       </React.Fragment>

@@ -123,18 +123,24 @@ export default function Sidebar(props) {
   };
 
   const onMounted = React.useCallback(() => {
-    let newStoreys = [];
-    for (let storeyId of props.tools.getStoreys()) {
-      let data = props.metadata[storeyId];
-      if (data) {
-        let name = data.attributes.Name || "IfcBuildingStorey";
-        newStoreys.push({
-          id: storeyId,
-          name: name,
-        });
+    let newStoreysModels = {};
+    const storeys = props.tools.getStoreys();
+    for (let modelId in storeys) {
+      let newStoreys = [];
+      let thisStoreys = storeys[modelId];
+      for (let storeyId of thisStoreys) {
+        let data = props.metadata[storeyId];
+        if (data) {
+          let name = data.attributes.Name || "IfcBuildingStorey";
+          newStoreys.push({
+            id: storeyId,
+            name: name,
+          });
+        }
       }
+      newStoreysModels[modelId] = newStoreys;
     }
-    setStoreys(newStoreys);
+    setStoreys(newStoreysModels);
   }, [props.metadata, props.tools]);
 
   React.useEffect(() => {
@@ -142,7 +148,7 @@ export default function Sidebar(props) {
       onMounted();
     }
   }, [onMounted, props.loading]);
-  
+
   React.useEffect(() => {
     setEntity(props.tree.currentEntity);
   }, [props.tree.currentEntity]);
@@ -190,19 +196,23 @@ export default function Sidebar(props) {
             </Tabs>
           </AppBar>
           <TabPanel value={value} index={0}>
-            <div id="tree-container">
-              <div
-                className={classes.placeholder}
-                style={{
-                  display: props.loading ? "block" : "none",
-                }}
-              >
-                <Skeleton className="skeleton-tree" />
-                <Skeleton className="skeleton-tree" />
-                <Skeleton className="skeleton-tree" />
-                <Skeleton className="skeleton-tree" />
-              </div>
+            <div
+              className={classes.placeholder}
+              style={{
+                display: props.loading ? "block" : "none",
+              }}
+            >
+              <Skeleton className="skeleton-tree" />
+              <Skeleton className="skeleton-tree" />
+              <Skeleton className="skeleton-tree" />
+              <Skeleton className="skeleton-tree" />
             </div>
+            <div
+              id="tree-container"
+              style={{
+                display: props.loading ? "none" : "block",
+              }}
+            />
             <PropertiesContainer entity={entity} metadata={props.metadata} />
           </TabPanel>
           <TabPanel value={value} index={1}>

@@ -15,6 +15,7 @@ export default class PropertiesContainer extends React.Component {
     ) {
       this.setState({ json: this.props.metadata });
     }
+    
     if (this.entity !== this.props.entity) {
       this.entity = this.props.entity;
       var metadata = this.getProperties(this.props.entity);
