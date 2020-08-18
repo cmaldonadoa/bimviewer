@@ -14,6 +14,7 @@ import {
   StyledListItemSelect,
   StyledListItemAccordion,
 } from "../components/StyledListItem";
+import BackdropMenu from "../components/BackdropMenu";
 import Annotation from "../components/Annotation";
 import { Typography } from "@material-ui/core";
 
@@ -28,6 +29,11 @@ const useStyles = makeStyles((theme) => ({
   denseList: {
     paddingTop: 0,
     paddingBottom: 0,
+  },
+  excelMenu: {
+    "& div .MuiDialog-paperScrollPaper": {
+      width: 400,
+    },
   },
 }));
 
@@ -44,6 +50,9 @@ const SidebarOptions = (props) => {
   const [openAnnotations, setOpenAnnotations] = React.useState(false);
   const [openMeasurements, setOpenMeasurements] = React.useState(false);
   const [openSectionPlanes, setOpenSectionPlanes] = React.useState(false);
+  const [openExcelMenu, setOpenExcelMenu] = React.useState(false);
+  const [excelModelType, setExcelModelType] = React.useState("ARC");
+  const [excelModel, setExcelModel] = React.useState("");
   const setOpen = props.secondDrawer.setOpen;
   const setContent = props.secondDrawer.setContent;
   const tools = props.tools;
@@ -79,6 +88,16 @@ const SidebarOptions = (props) => {
     }
   };
 
+  const handleStoreyModelTypeChange = (event) => {
+    let newType = event.target.value;
+    setStoreyModelType(newType);
+    if (!newType) {
+      setStorey("");
+      setStoreyModel("");
+      tools.setStorey("");
+    }
+  };
+
   const handleFpChange = (event) => {
     setFpState(!fpState);
     tools.setFirstPerson(!fpState);
@@ -108,13 +127,31 @@ const SidebarOptions = (props) => {
     setContent(content);
   };
 
+  const handleOpenExcelMenu = () => {
+    setOpenExcelMenu(!openExcelMenu);
+  };
+
+  const handleExcelModelTypeChange = (event, newType) => {
+    setExcelModelType(newType);
+    setExcelModel("");
+  };
+
+  const handleExcelModelChange = (event) => {
+    setExcelModel(event.target.value);
+  };
+
+  const handleExcelDownload = () => {
+    tools.downloadExcel(excelModel);
+    handleOpenExcelMenu();
+  };
+
   return (
     <div className={classes.root}>
       <List component="nav">
         <StyledListItemToggleButton
           label={"Control"}
           value={control}
-          exclusive={true}
+          exclusive
           onChange={handleControlChange}
           options={[
             {
@@ -136,7 +173,7 @@ const SidebarOptions = (props) => {
           label={"Vista"}
           value={view}
           onChange={handleViewChange}
-          exclusive={true}
+          exclusive
           options={[
             {
               label: "Perspectiva",
@@ -169,14 +206,39 @@ const SidebarOptions = (props) => {
           onClick={handleOpenStorey}
         >
           <StyledListItemSelect
+            label="Tipo"
+            onChange={handleStoreyModelTypeChange}
+            value={storeyModelType}
+            className={classes.nested}
+            options={[
+              {
+                label: "ARC",
+                value: "ARC",
+              },
+              {
+                label: "STR",
+                value: "STR",
+              },
+              {
+                label: "MEP",
+                value: "MEP",
+              },
+            ]}
+          />
+
+          <StyledListItemSelect
             label="Modelo"
             onChange={handleStoreyModelChange}
             value={storeyModel}
             className={classes.nested}
-            options={Object.keys(props.storeys).map((modelId) => ({
-              value: modelId,
-              label: tools.getModelName(modelId),
-            }))}
+            options={
+              storeyModelType
+                ? Object.keys(props.storeys[storeyModelType]).map((modelId) => ({
+                    value: modelId,
+                    label: tools.getModelMeta(modelId).name,
+                  }))
+                : []
+            }
           />
 
           <StyledListItemSelect
@@ -186,7 +248,7 @@ const SidebarOptions = (props) => {
             className={classes.nested}
             options={
               storeyModel
-                ? props.storeys[storeyModel].map((storey) => ({
+                ? props.storeys[storeyModelType][storeyModel].map((storey) => ({
                     value: storey.id,
                     label: storey.name,
                   }))
@@ -305,9 +367,50 @@ const SidebarOptions = (props) => {
 
         <StyledListItemButton
           label="Descargar como XLSX"
-          onClick={() => tools.downloadExcel()}
+          onClick={() => handleOpenExcelMenu()}
           icon={<FaFileExcel style={{ width: "24px", height: "24px" }} />}
         />
+        <BackdropMenu
+          title="Descargar XLSX"
+          open={openExcelMenu}
+          okButton={{
+            label: "Descargar",
+            onClick: () => handleExcelDownload(),
+            disabled: !excelModel
+          }}
+          handleClose={handleOpenExcelMenu}
+          className={classes.excelMenu}
+        >
+          <StyledListItemToggleButton
+            label={"Tipo"}
+            value={excelModelType}
+            onChange={handleExcelModelTypeChange}
+            exclusive
+            options={[
+              {
+                label: "ARC",
+                value: "ARC",
+              },
+              {
+                label: "STR",
+                value: "STR",
+              },
+              {
+                label: "MEP",
+                value: "MEP",
+              },
+            ]}
+          />
+          <StyledListItemSelect
+            label="Modelo"
+            onChange={handleExcelModelChange}
+            value={excelModel}
+            options={tools.getModelsByType(excelModelType).map((model) => ({
+              value: model.meta.id,
+              label: model.meta.name,
+            }))}
+          />
+        </BackdropMenu>
       </List>
     </div>
   );

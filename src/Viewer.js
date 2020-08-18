@@ -59,7 +59,8 @@ export default class Viewer extends React.Component {
           this.setState({ modelName: hash });
           files.forEach((file) => {
             let url = {
-              name: file.filename,
+              id: file.id,
+              name: file.name,
               model: file.gltf,
               metadata: file.metadata,
               xeokitMetadata: file.xeokit,
@@ -77,13 +78,10 @@ export default class Viewer extends React.Component {
         await fetch(`https://bimviewer.velociti.cl/${url.metadata}`)
           .then((res) => res.json())
           .then((res) => {
-            this.modelTracker.addModel(
-              url.name,
-              tag,
-              res,
-              model,
-              xeokitMetadata
-            );
+            this.modelTracker.addModel(tag, res, model, xeokitMetadata, {
+              id: url.id,
+              name: url.name,
+            });
           })
           .catch((err) => console.error(err));
       }
@@ -91,10 +89,14 @@ export default class Viewer extends React.Component {
       this.canvas.setModelTracker(this.modelTracker);
       this.canvas.build();
 
-      await fetch(`https://bimapi.velociti.cl/dev_get_annotations/${hash}`)
+      await fetch(`https://bimapi.velociti.cl/dev_get_annotations/${hash}`, {
+        headers: {
+          Authorization: "public_auth",
+        },
+      })
         .then((res) => res.json())
         .then((res) => this.canvas.loadAnnotations(res))
-        .catch((err) => console.error(err));
+        .catch((err) => console.log("No annotations"));
     }
   }
 
@@ -202,8 +204,8 @@ export default class Viewer extends React.Component {
     this.canvas ? this.canvas.setFirstPerson(mode) : (() => {})();
   }
 
-  getStoreys() {
-    return this.canvas ? this.canvas.getStoreys() : (() => {})();
+  getStoreys(type) {
+    return this.canvas ? this.canvas.getStoreys(type) : (() => {})();
   }
 
   setStorey(value) {
@@ -230,8 +232,12 @@ export default class Viewer extends React.Component {
     this.canvas ? this.canvas.showAll() : (() => {})();
   }
 
-  getModelName(id) {
-    return this.modelTracker.getModelName(id);
+  getModelMeta(id) {
+    return this.modelTracker.getModelMeta(id);
+  }
+
+  getModelsByType(type) {
+    return this.modelTracker.getModelsMetaByType(type);
   }
 
   measureDistance() {
@@ -250,10 +256,10 @@ export default class Viewer extends React.Component {
     this.canvas ? this.canvas.takeSnapshot() : (() => {})();
   }
 
-  downloadExcel() {
+  downloadExcel(id) {
     var { hash } = this.props.match.params;
 
-    fetch(`https://bimapi.velociti.cl/dev_get_excel/${hash}/`, {
+    fetch(`https://bimapi.velociti.cl/dev_get_excel/${hash}/${id}`, {
       headers: {
         Authorization: "public_auth",
       },
@@ -512,7 +518,7 @@ export default class Viewer extends React.Component {
           }}
           annotations={this.state.annotations}
           tools={{
-            getStoreys: () => this.getStoreys(),
+            getStoreys: (type) => this.getStoreys(type),
             setStorey: (value) => this.setStorey(value),
             setEdges: (mode) => this.setEdges(mode),
             setProjection: (mode) => this.setProjection(mode),
@@ -530,10 +536,11 @@ export default class Viewer extends React.Component {
               this.updateAnnotation(index, name, description),
             saveAnnotations: () => this.saveAnnotations(),
             takeSnapshot: () => this.takeSnapshot(),
-            downloadExcel: () => this.downloadExcel(),
+            downloadExcel: (id) => this.downloadExcel(id),
             downloadPDF: () => this.downloadPDF(),
             showAll: () => this.showAll(),
-            getModelName: (id) => this.getModelName(id),
+            getModelMeta: (id) => this.getModelMeta(id),
+            getModelsByType: (type) => this.getModelsByType(type),
           }}
         />
       </React.Fragment>

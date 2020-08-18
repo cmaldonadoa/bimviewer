@@ -94,11 +94,30 @@ export default class Canvas extends React.Component {
     const gltfLoader = new GLTFLoaderPlugin(viewer);
 
     this.modelTracker.allModels().forEach((data) => {
-      gltfLoader.load({
+      let model = gltfLoader.load({
         id: data.id,
         src: data.modelURL,
         metaModelSrc: data.metadataURL,
         edges: true,
+      });
+      model.on("loaded", () => {
+        var center = math.vec3();
+        var aabb = scene.getAABB(scene.visibleObjectIds);
+        var diag = math.getAABB3Diag(aabb);
+        math.getAABB3Center(aabb, center);
+        var dist = Math.abs(diag / Math.tan(55.0 / 2));
+        var dir = [1, -1, -1]
+        cameraControl.pivotPos = center;
+        cameraFlight.flyTo({
+          look: center,
+          eye: [
+            center[0] - dist * dir[0],
+            center[1] - dist * dir[1],
+            center[2] - dist * dir[2],
+          ],
+          up: [0, 1, 0],
+          orthoScale: diag * 1.3,
+        });
       });
     });
 
@@ -156,6 +175,7 @@ export default class Canvas extends React.Component {
       rightMargin: 0,
       color: "#ffffff",
       cameraFlyDuration: 0.7,
+      fitVisible: true,
     });
 
     //------------------------------------------------------------------------------------------------------------------
@@ -733,10 +753,11 @@ export default class Canvas extends React.Component {
     scene.setObjectsVisible(this.modelTracker.getVisible(), true);
   }
 
-  getStoreys() {
+  getStoreys(type) {
     var storeys = {};
     const modelStoreys = this.storeyViewsPlugin.modelStoreys;
-    for (let modelId in modelStoreys) {
+    const models = this.modelTracker.getModels(type).map((model) => model.id);
+    for (let modelId of models) {
       storeys[modelId] = [];
       let thisStoreys = modelStoreys[modelId];
       for (let storeyId in thisStoreys) {

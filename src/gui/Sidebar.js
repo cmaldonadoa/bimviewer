@@ -123,22 +123,24 @@ export default function Sidebar(props) {
   };
 
   const onMounted = React.useCallback(() => {
-    let newStoreysModels = {};
-    const storeys = props.tools.getStoreys();
-    for (let modelId in storeys) {
-      let newStoreys = [];
-      let thisStoreys = storeys[modelId];
-      for (let storeyId of thisStoreys) {
-        let data = props.metadata[storeyId];
-        if (data) {
-          let name = data.attributes.Name || "IfcBuildingStorey";
-          newStoreys.push({
-            id: storeyId,
-            name: name,
-          });
+    let newStoreysModels = { ARC: {}, STR: {}, MEP: {} };
+    for (let type of Object.keys(newStoreysModels)) {
+      const storeys = props.tools.getStoreys(type);
+      for (let modelId in storeys) {
+        let newStoreys = [];
+        let thisStoreys = storeys[modelId];
+        for (let storeyId of thisStoreys) {
+          let data = props.metadata[storeyId];
+          if (data) {
+            let name = data.attributes.Name || "IfcBuildingStorey";
+            newStoreys.push({
+              id: storeyId,
+              name: name,
+            });
+          }
         }
+        newStoreysModels[type][modelId] = newStoreys;
       }
-      newStoreysModels[modelId] = newStoreys;
     }
     setStoreys(newStoreysModels);
   }, [props.metadata, props.tools]);
