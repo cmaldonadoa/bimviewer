@@ -9,11 +9,10 @@ export default class ModelTracker extends React.Component {
     this.modelCount = 0;
   }
 
-  _createModelObject(id, name, metadata, modelURL, metadataURL) {
+  _createModelObject(id, metadata, modelURL, metadataURL, meta) {
     this.modelCount++;
     return {
       id: id,
-      name: name,
       metadata: metadata,
       ids: Object.keys(metadata),
       modelURL: `https://bimviewer.velociti.cl/${modelURL}`,
@@ -21,52 +20,53 @@ export default class ModelTracker extends React.Component {
       visible: Object.keys(metadata),
       xrayed: [],
       selected: [],
+      meta: meta,
     };
   }
 
-  addARC(name, metadata, modelURL, metadataURL) {
+  addARC(metadata, modelURL, metadataURL, meta) {
     const arc = this._createModelObject(
       `model-arc-${this.arc.length}`,
-      name,
       metadata,
       modelURL,
-      metadataURL
+      metadataURL,
+      meta
     );
     this.arc = [...this.arc, arc];
   }
 
-  addSTR(name, metadata, modelURL, metadataURL) {
+  addSTR(metadata, modelURL, metadataURL, meta) {
     const str = this._createModelObject(
       `model-str-${this.str.length}`,
-      name,
       metadata,
       modelURL,
-      metadataURL
+      metadataURL,
+      meta
     );
     this.str = [...this.str, str];
   }
 
-  addMEP(name, metadata, modelURL, metadataURL) {
+  addMEP(metadata, modelURL, metadataURL, meta) {
     const mep = this._createModelObject(
       `model-mep-${this.mep.length}`,
-      name,
       metadata,
       modelURL,
-      metadataURL
+      metadataURL,
+      meta
     );
     this.mep = [...this.mep, mep];
   }
 
-  addModel(name, tag, metadata, modelURL, metadataURL) {
+  addModel(tag, metadata, modelURL, metadataURL, meta) {
     switch (tag) {
       case "ARC":
-        this.addARC(name, metadata, modelURL, metadataURL);
+        this.addARC(metadata, modelURL, metadataURL, meta);
         break;
       case "STR":
-        this.addSTR(name, metadata, modelURL, metadataURL);
+        this.addSTR(metadata, modelURL, metadataURL, meta);
         break;
       case "MEP":
-        this.addMEP(name, metadata, modelURL, metadataURL);
+        this.addMEP(metadata, modelURL, metadataURL, meta);
         break;
       default:
         break;
@@ -86,13 +86,26 @@ export default class ModelTracker extends React.Component {
     }
   }
 
-  getModelName(id) {
+  getModelMeta(id) {
     for (let model of this.allModels()) {
       if (model.id === id) {
-        return model.name;
+        return model.meta;
       }
     }
-    return "";
+    return null;
+  }
+
+  getModelsMetaByType(type) {
+    switch (type) {
+      case "ARC":
+        return this.arc.map((model) => ({meta: model.meta}));
+      case "STR":
+        return this.str.map((model) => ({meta: model.meta}));
+      case "MEP":
+        return this.mep.map((model) => ({meta: model.meta}));
+      default:
+        break;
+    }
   }
 
   countModels() {
