@@ -1,7 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 import Viewer from "./Viewer";
-import ModelUploader from "./ModelUploader";
+import ModelUploaderHome from "./ModelUploaderHome";
 
 export default class App extends React.Component {
   render() {
@@ -15,7 +15,7 @@ export default class App extends React.Component {
           
           <Route
             path="/"
-            render={(props) => <ModelUploader {...props} />}
+            render={(props) => <ModelUploaderHome {...props} />}
           />
         </Switch>
       </Router>
