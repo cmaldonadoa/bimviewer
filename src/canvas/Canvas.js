@@ -1112,6 +1112,14 @@ export default class Canvas extends React.Component {
   }
 
   loadBCF(bcf) {
+    const selected = bcf.components.selection.map(
+      (element) => element.ifc_guid
+    );
+    const invisibles = bcf.components.visibility.exceptions.map(
+      (element) => element.ifc_guid
+    );
+    this.modelTracker.filterVisible((x) => !invisibles.includes(x));
+    this.modelTracker.setSelected(selected);
     this.bcfViewpoints.setViewpoint(bcf, {
       rayCast: true,
       defaultInvisible: true,
