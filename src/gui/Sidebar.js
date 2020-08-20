@@ -109,6 +109,8 @@ export default function Sidebar(props) {
   const [open, setOpen] = React.useState(!responsive);
   const [secondDrawerContent, setSecondDrawerContent] = React.useState(null);
   const [secondDrawerOpen, setSecondDrawerOpen] = React.useState(false);
+  const [thirdDrawerContent, setThirdDrawerContent] = React.useState(null);
+  const [thirdDrawerOpen, setThirdDrawerOpen] = React.useState(false);
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -226,6 +228,11 @@ export default function Sidebar(props) {
                   setContent: setSecondDrawerContent,
                   setOpen: setSecondDrawerOpen,
                 }}
+                thirdDrawer={{
+                  setContent: setThirdDrawerContent,
+                  setOpen: setThirdDrawerOpen,
+                }}
+                bcf={props.bcf}
                 annotations={props.annotations}
               />
             </div>
@@ -247,6 +254,22 @@ export default function Sidebar(props) {
         </div>
         <Divider />
         {secondDrawerContent}
+      </Drawer>
+      <Drawer
+        classes={{
+          paper: classes.drawerPaper,
+        }}
+        variant="persistent"
+        open={thirdDrawerOpen}
+        anchor="left"
+      >
+        <div className={classes.secondDrawerHeader}>
+          <IconButton onClick={() => setThirdDrawerOpen(false)}>
+            <ChevronLeftIcon />
+          </IconButton>
+        </div>
+        <Divider />
+        {thirdDrawerContent}
       </Drawer>
     </React.Fragment>
   );

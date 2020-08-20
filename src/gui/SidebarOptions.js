@@ -7,6 +7,7 @@ import AddIcon from "@material-ui/icons/Add";
 import EditIcon from "@material-ui/icons/Edit";
 import DeleteIcon from "@material-ui/icons/Delete";
 import SaveIcon from "@material-ui/icons/Save";
+import VisibilityIcon from '@material-ui/icons/Visibility';
 import {
   StyledListItemButton,
   StyledListItemToggleButton,
@@ -16,6 +17,7 @@ import {
 } from "../components/StyledListItem";
 import BackdropMenu from "../components/BackdropMenu";
 import Annotation from "../components/Annotation";
+import BCF from "../components/BCF";
 import { Typography } from "@material-ui/core";
 
 const useStyles = makeStyles((theme) => ({
@@ -50,6 +52,7 @@ const SidebarOptions = (props) => {
   const [openAnnotations, setOpenAnnotations] = React.useState(false);
   const [openMeasurements, setOpenMeasurements] = React.useState(false);
   const [openSectionPlanes, setOpenSectionPlanes] = React.useState(false);
+  const [openBCF, setOpenBCF] = React.useState(false);
   const [openExcelMenu, setOpenExcelMenu] = React.useState(false);
   const [excelModelType, setExcelModelType] = React.useState("ARC");
   const [excelModel, setExcelModel] = React.useState("");
@@ -145,6 +148,10 @@ const SidebarOptions = (props) => {
     handleOpenExcelMenu();
   };
 
+  const handleOpenBCF = () => {
+    setOpenBCF(!openBCF);
+  };
+
   return (
     <div className={classes.root}>
       <List component="nav">
@@ -233,10 +240,12 @@ const SidebarOptions = (props) => {
             className={classes.nested}
             options={
               storeyModelType
-                ? Object.keys(props.storeys[storeyModelType]).map((modelId) => ({
-                    value: modelId,
-                    label: tools.getModelMeta(modelId).name,
-                  }))
+                ? Object.keys(props.storeys[storeyModelType]).map(
+                    (modelId) => ({
+                      value: modelId,
+                      label: tools.getModelMeta(modelId).name,
+                    })
+                  )
                 : []
             }
           />
@@ -341,6 +350,45 @@ const SidebarOptions = (props) => {
           />
         </StyledListItemAccordion>
 
+        <StyledListItemAccordion
+          label={"BCF"}
+          open={openBCF}
+          onClick={handleOpenBCF}
+        >
+          <StyledListItemButton
+            icon={<SaveIcon />}
+            label="Guardar"
+            onClick={() => tools.saveBCF()}
+            className={classes.nested}
+          />
+          <StyledListItemButton
+            icon={<VisibilityIcon />}
+            label="Ver guardados"
+            onClick={() =>
+              openDrawer(
+                <List className={classes.denseList} dense>
+                  {props.bcf.length === 0 ? (
+                    <Typography className="p-3">No hay BCF.</Typography>
+                  ) : (
+                    props.bcf.map((viewpoint, index) =>
+                    viewpoint ? (
+                        <BCF
+                          key={index}
+                          img={viewpoint.snapshot.snapshot_data}
+                          onDelete={tools.destroyBCF}
+                          onClick={tools.loadBCF}
+                          id={index}
+                        />
+                      ) : null
+                    )
+                  )}
+                </List>
+              )
+            }
+            className={classes.nested}
+          />
+        </StyledListItemAccordion>
+
         <StyledListItemButton
           label="Ajustar a la pantalla"
           onClick={() => tools.fitModel()}
@@ -376,7 +424,7 @@ const SidebarOptions = (props) => {
           okButton={{
             label: "Descargar",
             onClick: () => handleExcelDownload(),
-            disabled: !excelModel
+            disabled: !excelModel,
           }}
           handleClose={handleOpenExcelMenu}
           className={classes.excelMenu}

@@ -26,6 +26,7 @@ export default class Viewer extends React.Component {
       x: 0,
       y: 0,
       annotations: [],
+      bcf: [],
     };
     this.modelTracker = new ModelTracker();
     this.canvas = new Canvas({
@@ -97,6 +98,18 @@ export default class Viewer extends React.Component {
         .then((res) => res.json())
         .then((res) => this.canvas.loadAnnotations(res))
         .catch((err) => console.log("No annotations"));
+
+      await fetch(`https://bimapi.velociti.cl/dev_get_bcf/${hash}`, {
+        headers: {
+          Authorization: "public_auth",
+        },
+      })
+        .then((res) => res.json())
+        .then((res) => {
+          console.log(res);
+          this.setState({ bcf: res });
+        })
+        .catch((err) => console.log("No BCF"));
     }
   }
 
@@ -254,6 +267,10 @@ export default class Viewer extends React.Component {
 
   takeSnapshot() {
     this.canvas ? this.canvas.takeSnapshot() : (() => {})();
+  }
+
+  loadBCF(index) {
+    this.canvas ? this.canvas.loadBCF(this.state.bcf[index]) : (() => {})();
   }
 
   downloadExcel(id) {
@@ -452,6 +469,50 @@ export default class Viewer extends React.Component {
     this.canvas ? this.canvas.toggleAnnotationVisibility(id) : (() => {})();
   }
 
+  saveBCF() {
+    const { hash } = this.props.match.params;
+    const newBcf = this.canvas ? this.canvas.saveBCF() : (() => {})();
+    const bcf = [...this.state.bcf, newBcf];
+
+    this.setState({
+      bcf: bcf,
+    });
+
+    fetch(`https://bimapi.velociti.cl/dev_save_bcf/${hash}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        bcf: bcf,
+      }),
+    })
+      .then((res) => res.json())
+      .then((res) => console.log(res))
+      .catch((err) => console.error(err));
+  }
+
+  destroyBCF(index) {
+    const { hash } = this.props.match.params;
+    var bcf = [...this.state.bcf];
+    delete bcf[index];
+    this.setState((prevState) => ({
+      bcf: bcf,
+    }));
+    fetch(`https://bimapi.velociti.cl/dev_save_bcf/${hash}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        bcf: bcf,
+      }),
+    })
+      .then((res) => res.json())
+      .then((res) => console.log(res))
+      .catch((err) => console.error(err));
+  }
+
   render() {
     return (
       <React.Fragment>
@@ -517,6 +578,7 @@ export default class Viewer extends React.Component {
             currentEntity: this.state.currentEntity,
           }}
           annotations={this.state.annotations}
+          bcf={this.state.bcf}
           tools={{
             getStoreys: (type) => this.getStoreys(type),
             setStorey: (value) => this.setStorey(value),
@@ -541,6 +603,9 @@ export default class Viewer extends React.Component {
             showAll: () => this.showAll(),
             getModelMeta: (id) => this.getModelMeta(id),
             getModelsByType: (type) => this.getModelsByType(type),
+            saveBCF: () => this.saveBCF(),
+            loadBCF: (index) => this.loadBCF(index),
+            destroyBCF: (index) => this.destroyBCF(index),
           }}
         />
       </React.Fragment>

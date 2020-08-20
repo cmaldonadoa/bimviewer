@@ -8,6 +8,7 @@ import { math } from "@xeokit/xeokit-sdk/src/viewer/scene/math/math.js";
 import { SectionPlanesPlugin } from "@xeokit/xeokit-sdk/src/plugins/SectionPlanesPlugin/SectionPlanesPlugin.js";
 import { DistanceMeasurementsPlugin } from "@xeokit/xeokit-sdk/src/plugins/DistanceMeasurementsPlugin/DistanceMeasurementsPlugin.js";
 import { AnnotationsPlugin } from "@xeokit/xeokit-sdk/src/plugins/AnnotationsPlugin/AnnotationsPlugin.js";
+import { BCFViewpointsPlugin } from "@xeokit/xeokit-sdk/src/plugins/BCFViewpointsPlugin/BCFViewpointsPlugin.js";
 
 export default class Canvas extends React.Component {
   constructor(props) {
@@ -15,6 +16,7 @@ export default class Canvas extends React.Component {
     this.mounted = false;
     this.loading = 1;
     this.modelName = props.modelName;
+    this.bcf = [];
 
     /* Mouse left click action */
     this.mouseCreatePlanes = false;
@@ -106,7 +108,7 @@ export default class Canvas extends React.Component {
         var diag = math.getAABB3Diag(aabb);
         math.getAABB3Center(aabb, center);
         var dist = Math.abs(diag / Math.tan(55.0 / 2));
-        var dir = [1, -1, -1]
+        var dir = [1, -1, -1];
         cameraControl.pivotPos = center;
         cameraFlight.flyTo({
           look: center,
@@ -177,6 +179,13 @@ export default class Canvas extends React.Component {
       cameraFlyDuration: 0.7,
       fitVisible: true,
     });
+
+    //------------------------------------------------------------------------------------------------------------------
+    // Add StoreyViewsPlugin
+    //------------------------------------------------------------------------------------------------------------------
+    const bcfViewpoints = new BCFViewpointsPlugin(viewer);
+
+    this.bcfViewpoints = bcfViewpoints;
 
     //------------------------------------------------------------------------------------------------------------------
     // Add StoreyViewsPlugin
@@ -1091,5 +1100,21 @@ export default class Canvas extends React.Component {
     a.href = img;
     a.download = `${this.modelName}.png`;
     a.click();
+  }
+
+  saveBCF() {
+    const viewpoint = this.bcfViewpoints.getViewpoint({
+      spacesVisible: true,
+      spaceBoundariesVisible: false,
+      openingsVisible: true,
+    });
+    return viewpoint;
+  }
+
+  loadBCF(bcf) {
+    this.bcfViewpoints.setViewpoint(bcf, {
+      rayCast: true,
+      defaultInvisible: true,
+    });
   }
 }
