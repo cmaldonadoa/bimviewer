@@ -105,10 +105,7 @@ export default class Viewer extends React.Component {
         },
       })
         .then((res) => res.json())
-        .then((res) => {
-          console.log(res);
-          this.setState({ bcf: res });
-        })
+        .then((res) => this.setState({ bcf: res }))
         .catch((err) => console.log("No BCF"));
     }
   }
