@@ -140,7 +140,7 @@ div.sidebar-tabpanel > * {
   position: absolute;
   left: 0;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   background-color: #fff;
   color: black;
   padding-top: 16px;
@@ -156,6 +156,7 @@ div.sidebar-tabpanel > * {
 
 #tree-container ul li {
   position: relative;
+  white-space: nowrap;
 }
 
 #tree-container ul li a {
