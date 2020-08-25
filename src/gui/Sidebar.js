@@ -12,9 +12,10 @@ import PropertiesContainer from "./PropertiesContainer";
 import SidebarOptions from "./SidebarOptions";
 import Drawer from "@material-ui/core/Drawer";
 import IconButton from "@material-ui/core/IconButton";
-import MenuIcon from "@material-ui/icons/Menu";
 import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
+import ChevronRightIcon from "@material-ui/icons/ChevronRight";
 import Divider from "@material-ui/core/Divider";
+import CloseIcon from "@material-ui/icons/Close";
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -88,8 +89,8 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     alignItems: "center",
     padding: theme.spacing(0, 1),
-    width: "100%",
     justifyContent: "flex-end",
+    width: "min-content",
   },
   secondDrawerHeader: {
     display: "flex",
@@ -97,7 +98,18 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(0, 1),
     // necessary for content to be below app bar
     ...theme.mixins.toolbar,
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
+  },
+  drawerTitle: {
+    fontSize: "18px !important",
+    padding: 12,
+  },
+  appbar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    "& div div .MuiTabs-flexContainer": {
+      height: "100%",
+    },
   },
 }));
 
@@ -106,11 +118,10 @@ export default function Sidebar(props) {
   const [value, setValue] = React.useState(0);
   const [entity, setEntity] = React.useState(null);
   const [storeys, setStoreys] = React.useState([]);
-  const [open, setOpen] = React.useState(!responsive);
+  const [open, setOpen] = React.useState(true);
   const [secondDrawerContent, setSecondDrawerContent] = React.useState(null);
+  const [secondDrawerTitle, setSecondDrawerTitle] = React.useState("");
   const [secondDrawerOpen, setSecondDrawerOpen] = React.useState(false);
-  const [thirdDrawerContent, setThirdDrawerContent] = React.useState(null);
-  const [thirdDrawerOpen, setThirdDrawerOpen] = React.useState(false);
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -159,15 +170,13 @@ export default function Sidebar(props) {
 
   return (
     <React.Fragment>
-      {responsive ? (
-        <IconButton
-          color="inherit"
-          onClick={handleDrawerOpen}
-          className={clsx(classes.menuButton, open && classes.hide)}
-        >
-          <MenuIcon />
-        </IconButton>
-      ) : null}
+      <IconButton
+        color="inherit"
+        onClick={handleDrawerOpen}
+        className={clsx(classes.menuButton, open && classes.hide)}
+      >
+        <ChevronRightIcon />
+      </IconButton>
 
       <Drawer
         className={classes.drawer}
@@ -179,25 +188,24 @@ export default function Sidebar(props) {
         }}
       >
         <div className={classes.root} onClick={() => props.onClick()}>
-          <AppBar position="static" elevation={0}>
+          <AppBar className={classes.appbar} position="static" elevation={0}>
             <Tabs
-              variant={responsive ? "" : "fullWidth"}
+              style={{ width: "100%" }}
+              variant="fullWidth"
               value={value}
               onChange={handleChange}
             >
               <Tab label="Navegación" />
               <Tab label="Herramientas" />
-              {responsive ? (
-                <div className={classes.drawerHeader}>
-                  <IconButton
-                    className={classes.closeButton}
-                    onClick={handleDrawerClose}
-                  >
-                    <ChevronLeftIcon />
-                  </IconButton>
-                </div>
-              ) : null}
             </Tabs>
+            <div className={classes.drawerHeader}>
+              <IconButton
+                className={classes.closeButton}
+                onClick={handleDrawerClose}
+              >
+                <ChevronLeftIcon />
+              </IconButton>
+            </div>
           </AppBar>
           <TabPanel value={value} index={0}>
             <div
@@ -222,15 +230,13 @@ export default function Sidebar(props) {
           <TabPanel value={value} index={1}>
             <div style={{ height: "calc(100vh - 48px)", overflowY: "auto" }}>
               <SidebarOptions
+                project={props.project}
                 storeys={storeys}
                 tools={props.tools}
                 secondDrawer={{
                   setContent: setSecondDrawerContent,
                   setOpen: setSecondDrawerOpen,
-                }}
-                thirdDrawer={{
-                  setContent: setThirdDrawerContent,
-                  setOpen: setThirdDrawerOpen,
+                  setTitle: setSecondDrawerTitle,
                 }}
                 bcf={props.bcf}
                 annotations={props.annotations}
@@ -248,28 +254,15 @@ export default function Sidebar(props) {
         anchor="left"
       >
         <div className={classes.secondDrawerHeader}>
+          <Typography className={classes.drawerTitle} noWrap>
+            {secondDrawerTitle}
+          </Typography>
           <IconButton onClick={() => setSecondDrawerOpen(false)}>
-            <ChevronLeftIcon />
+            <CloseIcon />
           </IconButton>
         </div>
         <Divider />
         {secondDrawerContent}
-      </Drawer>
-      <Drawer
-        classes={{
-          paper: classes.drawerPaper,
-        }}
-        variant="persistent"
-        open={thirdDrawerOpen}
-        anchor="left"
-      >
-        <div className={classes.secondDrawerHeader}>
-          <IconButton onClick={() => setThirdDrawerOpen(false)}>
-            <ChevronLeftIcon />
-          </IconButton>
-        </div>
-        <Divider />
-        {thirdDrawerContent}
       </Drawer>
     </React.Fragment>
   );
