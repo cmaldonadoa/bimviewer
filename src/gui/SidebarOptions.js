@@ -4,10 +4,11 @@ import List from "@material-ui/core/List";
 import Divider from "@material-ui/core/Divider";
 import { FaFileExcel, FaFilePdf, FaFileImage } from "react-icons/fa";
 import AddIcon from "@material-ui/icons/Add";
-import EditIcon from "@material-ui/icons/Edit";
+import Button from "@material-ui/core/Button";
 import DeleteIcon from "@material-ui/icons/Delete";
 import SaveIcon from "@material-ui/icons/Save";
-import VisibilityIcon from '@material-ui/icons/Visibility';
+import VisibilityIcon from "@material-ui/icons/Visibility";
+import LabelIcon from "@material-ui/icons/Label";
 import {
   StyledListItemButton,
   StyledListItemToggleButton,
@@ -52,17 +53,55 @@ const SidebarOptions = (props) => {
   const [openAnnotations, setOpenAnnotations] = React.useState(false);
   const [openMeasurements, setOpenMeasurements] = React.useState(false);
   const [openSectionPlanes, setOpenSectionPlanes] = React.useState(false);
-  const [openBCF, setOpenBCF] = React.useState(false);
+  const [openBcf, setOpenBcf] = React.useState(false);
   const [openExcelMenu, setOpenExcelMenu] = React.useState(false);
   const [excelModelType, setExcelModelType] = React.useState("ARC");
   const [excelModel, setExcelModel] = React.useState("");
-  const setOpen = props.secondDrawer.setOpen;
-  const setContent = props.secondDrawer.setContent;
+  const { setOpen, setContent, setTitle } = props.secondDrawer;
   const tools = props.tools;
 
-  const handleOpenAnnotations = () => {
-    setOpenAnnotations(!openAnnotations);
-  };
+  const annotationsContent = (
+    <List className={classes.denseList} dense>
+      {props.annotations.filter((x) => Boolean(x)).length === 0 ? (
+        <React.Fragment>
+          <Typography className="p-3">No hay anotaciones.</Typography>
+
+          <Divider />
+        </React.Fragment>
+      ) : (
+        props.annotations.map((annotation, index) =>
+          annotation ? (
+            <Annotation
+              key={annotation.id}
+              onDelete={tools.destroyAnnotation}
+              onSave={tools.saveAnnotation}
+              onCheck={tools.toggleAnnotation}
+              id={index}
+              name={annotation.name}
+              description={annotation.description}
+            />
+          ) : null
+        )
+      )}
+      <div className="p-3">
+        <Button
+          disableElevation
+          variant="contained"
+          color="primary"
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => tools.createAnnotations()}
+        >
+          Nueva
+        </Button>
+      </div>
+    </List>
+  );
+
+  React.useEffect(() => {
+    setTitle("Anotaciones");
+    setContent(annotationsContent);
+  }, [props.annotations]);
 
   const handleOpenMeasurements = () => {
     setOpenMeasurements(!openMeasurements);
@@ -85,8 +124,9 @@ const SidebarOptions = (props) => {
   const handleStoreyModelChange = (event) => {
     let newModel = event.target.value;
     setStoreyModel(newModel);
+    setStorey("");
+
     if (!newModel) {
-      setStorey("");
       tools.setStorey("");
     }
   };
@@ -94,9 +134,10 @@ const SidebarOptions = (props) => {
   const handleStoreyModelTypeChange = (event) => {
     let newType = event.target.value;
     setStoreyModelType(newType);
+    setStorey("");
+    setStoreyModel("");
+
     if (!newType) {
-      setStorey("");
-      setStoreyModel("");
       tools.setStorey("");
     }
   };
@@ -125,8 +166,9 @@ const SidebarOptions = (props) => {
     }
   };
 
-  const openDrawer = (content) => {
+  const openDrawer = (title, content) => {
     setOpen(true);
+    setTitle(title);
     setContent(content);
   };
 
@@ -148,8 +190,8 @@ const SidebarOptions = (props) => {
     handleOpenExcelMenu();
   };
 
-  const handleOpenBCF = () => {
-    setOpenBCF(!openBCF);
+  const handleOpenBcf = () => {
+    setOpenBcf(!openBcf);
   };
 
   return (
@@ -265,52 +307,6 @@ const SidebarOptions = (props) => {
             }
           />
         </StyledListItemAccordion>
-        <StyledListItemAccordion
-          label={"Anotaciones"}
-          open={openAnnotations}
-          onClick={handleOpenAnnotations}
-        >
-          <StyledListItemButton
-            icon={<AddIcon />}
-            label="Añadir"
-            onClick={() => tools.createAnnotations()}
-            className={classes.nested}
-          />
-          <StyledListItemButton
-            icon={<EditIcon />}
-            label="Editar"
-            onClick={() =>
-              openDrawer(
-                <List className={classes.denseList} dense>
-                  {props.annotations.length === 0 ? (
-                    <Typography className="p-3">No hay anotaciones.</Typography>
-                  ) : (
-                    props.annotations.map((annotation, index) =>
-                      annotation ? (
-                        <Annotation
-                          key={annotation.id}
-                          onDelete={tools.destroyAnnotation}
-                          onSave={tools.saveAnnotation}
-                          onCheck={tools.toggleAnnotation}
-                          id={index}
-                          name={annotation.name}
-                          description={annotation.description}
-                        />
-                      ) : null
-                    )
-                  )}
-                </List>
-              )
-            }
-            className={classes.nested}
-          />
-          <StyledListItemButton
-            icon={<SaveIcon />}
-            label="Guardar"
-            onClick={() => tools.saveAnnotations()}
-            className={classes.nested}
-          />
-        </StyledListItemAccordion>
 
         <StyledListItemAccordion
           label={"Planos de Sección"}
@@ -351,32 +347,43 @@ const SidebarOptions = (props) => {
         </StyledListItemAccordion>
 
         <StyledListItemAccordion
-          label={"BCF"}
-          open={openBCF}
-          onClick={handleOpenBCF}
+          label={"Observaciones"}
+          open={openBcf}
+          onClick={handleOpenBcf}
         >
           <StyledListItemButton
             icon={<SaveIcon />}
             label="Guardar"
-            onClick={() => tools.saveBCF()}
+            onClick={() => tools.saveBcf()}
             className={classes.nested}
           />
+          <StyledListItemButton
+            icon={<LabelIcon />}
+            label={"Anotaciones"}
+            onClick={() => openDrawer("Anotaciones", annotationsContent)}
+            className={classes.nested}
+          ></StyledListItemButton>
           <StyledListItemButton
             icon={<VisibilityIcon />}
             label="Ver guardados"
             onClick={() =>
               openDrawer(
+                "Observaciones",
                 <List className={classes.denseList} dense>
-                  {props.bcf.length === 0 ? (
-                    <Typography className="p-3">No hay BCF.</Typography>
+                  {props.bcf.filter((x) => Boolean(x)).length === 0 ? (
+                    <Typography className="p-3">
+                      No hay observaciones.
+                    </Typography>
                   ) : (
                     props.bcf.map((viewpoint, index) =>
-                    viewpoint ? (
+                      viewpoint ? (
                         <BCF
                           key={index}
-                          img={viewpoint.snapshot.snapshot_data}
-                          onDelete={tools.destroyBCF}
-                          onClick={tools.loadBCF}
+                          data={viewpoint.bcf}
+                          name={`${props.project}-bcf${index}`}
+                          img={viewpoint.bcf.snapshot.snapshot_data}
+                          onDelete={tools.destroyBcf}
+                          onClick={tools.loadBcf}
                           id={index}
                         />
                       ) : null

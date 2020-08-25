@@ -24,6 +24,7 @@ export default class Canvas extends React.Component {
     this.mouseCreateAnnotations = false;
     this.measureClicks = 0; // Counter to disable measure distance creation
     this.planesCounter = 0;
+    this.annotationsCount = 1;
 
     this.modelTracker = null;
 
@@ -409,8 +410,6 @@ export default class Canvas extends React.Component {
       },
     });
     this.annotations = annotations;
-
-    this.annotationsCount = 1;
     scene.input.on(
       "mouseclicked",
       (coords) => {
@@ -506,7 +505,7 @@ export default class Canvas extends React.Component {
       const desc = annotation.description;
       this.annotations.createAnnotation({
         id: id,
-        entity: scene.objects[annotations.entity],
+        entity: scene.objects[annotation.entity],
         worldPos: [wp["0"], wp["1"], wp["2"]],
         occludable: true,
         labelShown: true,
@@ -1102,7 +1101,7 @@ export default class Canvas extends React.Component {
     a.click();
   }
 
-  saveBCF() {
+  createBcf() {
     const viewpoint = this.bcfViewpoints.getViewpoint({
       spacesVisible: true,
       spaceBoundariesVisible: false,
@@ -1111,7 +1110,8 @@ export default class Canvas extends React.Component {
     return viewpoint;
   }
 
-  loadBCF(bcf) {
+  loadBcf(data) {
+    const bcf = data.bcf;
     const selected = bcf.components.selection.map(
       (element) => element.ifc_guid
     );
@@ -1124,5 +1124,9 @@ export default class Canvas extends React.Component {
       rayCast: true,
       defaultInvisible: true,
     });
+
+    this.annotations.clear();
+    this.annotationsCount = 1;
+    this.loadAnnotations(data.annotations.filter((x) => Boolean(x)));
   }
 }

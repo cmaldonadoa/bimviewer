@@ -46,7 +46,7 @@ export default class Viewer extends React.Component {
   async componentDidMount() {
     var { hash } = this.props.match.params;
     var urls = [];
-    await fetch(`https://bimapi.velociti.cl/dev_get_file/${hash}/`, {
+    await fetch(`https://bimapi.velociti.cl/dev_get_projects/${hash}/`, {
       headers: {
         Authorization: "public_auth",
       },
@@ -57,7 +57,7 @@ export default class Viewer extends React.Component {
           this.setState({ loading: true });
         } else {
           let files = data.files;
-          this.setState({ modelName: hash });
+          this.setState({ modelName: data.project.replace(/\s/g, "_") });
           files.forEach((file) => {
             let url = {
               id: file.id,
@@ -74,14 +74,14 @@ export default class Viewer extends React.Component {
       .catch((err) => console.error(err));
 
     if (!this.state.loading) {
-      for (var url of urls) {
-        let { tag, model, xeokitMetadata } = url;
-        await fetch(`https://bimviewer.velociti.cl/${url.metadata}`)
+      for (let url of urls) {
+        let { id, name, tag, model, xeokitMetadata, metadata } = url;
+        await fetch(`https://bimviewer.velociti.cl/${metadata}`)
           .then((res) => res.json())
           .then((res) => {
             this.modelTracker.addModel(tag, res, model, xeokitMetadata, {
-              id: url.id,
-              name: url.name,
+              id: id,
+              name: name,
             });
           })
           .catch((err) => console.error(err));
@@ -90,6 +90,7 @@ export default class Viewer extends React.Component {
       this.canvas.setModelTracker(this.modelTracker);
       this.canvas.build();
 
+      /*
       await fetch(`https://bimapi.velociti.cl/dev_get_annotations/${hash}`, {
         headers: {
           Authorization: "public_auth",
@@ -98,6 +99,7 @@ export default class Viewer extends React.Component {
         .then((res) => res.json())
         .then((res) => this.canvas.loadAnnotations(res))
         .catch((err) => console.log("No annotations"));
+      */
 
       await fetch(`https://bimapi.velociti.cl/dev_get_bcf/${hash}`, {
         headers: {
@@ -174,10 +176,6 @@ export default class Viewer extends React.Component {
 
   lookAt(id) {
     this.canvas ? this.canvas.lookAt(id) : (() => {})();
-  }
-
-  isolate(node) {
-    console.error("NOT IMPLEMENTED");
   }
 
   //------------------------------------------------------------------------------------------------------------------
@@ -266,8 +264,9 @@ export default class Viewer extends React.Component {
     this.canvas ? this.canvas.takeSnapshot() : (() => {})();
   }
 
-  loadBCF(index) {
-    this.canvas ? this.canvas.loadBCF(this.state.bcf[index]) : (() => {})();
+  loadBcf(index) {
+    this.setState({ annotations: [] });
+    this.canvas ? this.canvas.loadBcf(this.state.bcf[index]) : (() => {})();
   }
 
   downloadExcel(id) {
@@ -443,33 +442,18 @@ export default class Viewer extends React.Component {
     }));
   }
 
-  saveAnnotations() {
-    var { hash } = this.props.match.params;
-    var annotations = this.canvas ? this.canvas.getAnnotations() : [];
-    fetch(`https://bimapi.velociti.cl/dev_save_annotations/${hash}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        annotations: annotations,
-      }),
-    })
-      .then((res) => res.json())
-      .then((res) => console.log(res))
-      .catch((err) => console.error(err));
-  }
-
   toggleAnnotationVisibility(index) {
     var annotations = [...this.state.annotations];
     var id = annotations[index].id;
     this.canvas ? this.canvas.toggleAnnotationVisibility(id) : (() => {})();
   }
 
-  saveBCF() {
+  saveBcf() {
     const { hash } = this.props.match.params;
-    const newBcf = this.canvas ? this.canvas.saveBCF() : (() => {})();
-    const bcf = [...this.state.bcf, newBcf];
+    const newBcf = this.canvas ? this.canvas.createBcf() : {};
+    const annotations = this.canvas ? this.canvas.getAnnotations() : [];
+    console.log(annotations)
+    const bcf = [...this.state.bcf, { bcf: newBcf, annotations: annotations }];
 
     this.setState({
       bcf: bcf,
@@ -489,13 +473,15 @@ export default class Viewer extends React.Component {
       .catch((err) => console.error(err));
   }
 
-  destroyBCF(index) {
+  destroyBcf(index) {
     const { hash } = this.props.match.params;
     var bcf = [...this.state.bcf];
     delete bcf[index];
+
     this.setState((prevState) => ({
       bcf: bcf,
     }));
+
     fetch(`https://bimapi.velociti.cl/dev_save_bcf/${hash}`, {
       method: "POST",
       headers: {
@@ -540,7 +526,6 @@ export default class Viewer extends React.Component {
             toggleXray: (node) => this.toggleXray(node, false),
             toggleSelect: (node) => this.toggleSelect(node, false),
             lookAt: (id) => this.lookAt(id),
-            isolate: (node) => this.isolate(node, false),
           }}
         />
         <TreeContextMenu
@@ -562,10 +547,10 @@ export default class Viewer extends React.Component {
             toggleXray: (node) => this.toggleXray(node, true),
             toggleSelect: (node) => this.toggleSelect(node, true),
             lookAt: (id) => this.lookAt(id),
-            isolate: (node) => this.isolate(node, true),
           }}
         />
         <Sidebar
+          project={this.state.modelName}
           loading={this.state.mounting}
           metadata={this.modelTracker.getMetadata()}
           onClick={() => this.closeTreeContextMenu()}
@@ -593,16 +578,15 @@ export default class Viewer extends React.Component {
             toggleAnnotation: (index) => this.toggleAnnotationVisibility(index),
             saveAnnotation: (index, name, description) =>
               this.updateAnnotation(index, name, description),
-            saveAnnotations: () => this.saveAnnotations(),
             takeSnapshot: () => this.takeSnapshot(),
             downloadExcel: (id) => this.downloadExcel(id),
             downloadPDF: () => this.downloadPDF(),
             showAll: () => this.showAll(),
             getModelMeta: (id) => this.getModelMeta(id),
             getModelsByType: (type) => this.getModelsByType(type),
-            saveBCF: () => this.saveBCF(),
-            loadBCF: (index) => this.loadBCF(index),
-            destroyBCF: (index) => this.destroyBCF(index),
+            saveBcf: () => this.saveBcf(),
+            loadBcf: (index) => this.loadBcf(index),
+            destroyBcf: (index) => this.destroyBcf(index),
           }}
         />
       </React.Fragment>
