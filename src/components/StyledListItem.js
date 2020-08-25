@@ -136,10 +136,11 @@ const StyledListItemAccordion = (props) => {
   const label = props.label;
   const onClick = props.onClick;
   const open = props.open;
+  const className = props.className;
 
   return (
     <React.Fragment>
-      <ListItem button onClick={onClick}>
+      <ListItem button className={className} onClick={onClick}>
         <ListItemText primary={label} />
         {open ? <ExpandLess /> : <ExpandMore />}
       </ListItem>
