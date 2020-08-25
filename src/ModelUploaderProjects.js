@@ -4,18 +4,15 @@ import Button from "@material-ui/core/Button";
 import Container from "@material-ui/core/Container";
 import Grid from "@material-ui/core/Grid";
 import LinearProgress from "@material-ui/core/LinearProgress";
-import Paper from "@material-ui/core/Paper";
 import TextField from "@material-ui/core/TextField";
 import Typography from "@material-ui/core/Typography";
 import Pagination from "@material-ui/lab/Pagination";
 import AppBar from "@material-ui/core/AppBar";
 import Toolbar from "@material-ui/core/Toolbar";
 import Cookies from "universal-cookie";
-import IconButton from "@material-ui/core/IconButton";
-import OpenInNewIcon from "@material-ui/icons/OpenInNew";
-import AddCircleIcon from "@material-ui/icons/AddCircle";
 import { StyledListItemSelect } from "./components/StyledListItem";
 import BackdropMenu from "./components/BackdropMenu";
+import ProjectBar from "./components/ProjectBar";
 
 const cookies = new Cookies();
 
@@ -46,7 +43,6 @@ export default function ModelUploaderProjects(props) {
   const [loading, setLoading] = React.useState(false);
   const [file, setFile] = React.useState(null);
   const [projects, setProjects] = React.useState([]);
-  const [page, setPage] = React.useState(1);
   const [subProjects, setSubProjects] = React.useState([]);
   const [openNewProject, setOpenNewProject] = React.useState(false);
   const [openNewModel, setOpenNewModel] = React.useState(false);
@@ -66,26 +62,26 @@ export default function ModelUploaderProjects(props) {
       .then((res) => res.json())
       .then((res) => {
         if (res.status !== 200) {
-          signOut()
+          signOut();
         } else {
-        let projects = res.projects.reverse();
-        setProjects(projects);
-        setSubProjects(projects.slice(0, size));}
+          let projects = res.projects.reverse();
+          setProjects(projects);
+          setSubProjects(projects.slice(0, size));
+        }
       })
       .catch((err) => console.error(err));
   }, [jwt]);
 
   const handlePageChange = (event, value) => {
-    setPage(value);
     setSubProjects(
       projects.slice((value - 1) * size, size + (value - 1) * size)
     );
   };
 
   const signOut = () => {
-    cookies.remove("dev-bim-jwt", { path: "/" })
-    window.location.reload()
-  }
+    cookies.remove("dev-bim-jwt", { path: "/" });
+    window.location.reload();
+  };
 
   const handleOpenNewModelMenu = (id) => {
     if (!loading) {
@@ -175,7 +171,9 @@ export default function ModelUploaderProjects(props) {
           <Button color="inherit" onClick={handleOpenNewPojectMenu}>
             Nuevo proyecto
           </Button>
-          <Button color="inherit" onClick={signOut}>Salir</Button>
+          <Button color="inherit" onClick={signOut}>
+            Salir
+          </Button>
         </Toolbar>
       </AppBar>
       <Container maxWidth="xl">
@@ -191,30 +189,14 @@ export default function ModelUploaderProjects(props) {
           <Grid container spacing={2} justify="center">
             {subProjects.map((project) => (
               <Grid key={project.uuid} item xs={9}>
-                <Paper>
-                  <div className="d-flex justify-content-between align-items-center p-2">
-                    <div className="pl-3">
-                      <h5>{project.name}</h5>
-                    </div>
-                    <div
-                      className="d-flex justify-content-around"
-                      style={{ width: "120px" }}
-                    >
-                      <IconButton
-                        onClick={() => handleOpenNewModelMenu(project.id)}
-                      >
-                        <AddCircleIcon />
-                      </IconButton>
-                      <IconButton
-                        onClick={() =>
-                          window.open(`/development/v3/build/${project.uuid}`)
-                        }
-                      >
-                        <OpenInNewIcon />
-                      </IconButton>
-                    </div>
-                  </div>
-                </Paper>
+                <ProjectBar
+                  id={project.uuid}
+                  name={project.name}
+                  onAdd={() => handleOpenNewModelMenu(project.id)}
+                  onOpen={() =>
+                    window.open(`/development/v3/build/${project.uuid}`)
+                  }
+                />
               </Grid>
             ))}
             <Grid item xs={12}>
