@@ -6,8 +6,7 @@ import ModelTracker from "./canvas/ModelTracker";
 import CanvasContextMenu from "./gui/CanvasContextMenu";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import Alert from "@material-ui/lab/Alert";
-import Snackbar from "@material-ui/core/Snackbar";
+import Alert from "./components/Alert";
 
 export default class Viewer extends React.Component {
   constructor(props) {
@@ -40,7 +39,7 @@ export default class Viewer extends React.Component {
       closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
       signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
       signalMount: () => this.signalMount(),
-      signalDownloadBcf: (annotations) => this.renderBcf(annotations)
+      signalDownloadBcf: (annotations) => this.renderBcf(annotations),
     });
   }
 
@@ -72,7 +71,9 @@ export default class Viewer extends React.Component {
           });
         }
       })
-      .catch((err) => console.error(err));
+      .catch((err) =>
+        Alert.alertError("Oh no!", "Ocurrió un error inesperado.")
+      );
 
     if (!this.state.loading) {
       for (let url of urls) {
@@ -85,7 +86,9 @@ export default class Viewer extends React.Component {
               name: name,
             });
           })
-          .catch((err) => console.error(err));
+          .catch((err) =>
+            Alert.alertError("Oh no!", "Ocurrió un error inesperado.")
+          );
       }
 
       this.canvas.setModelTracker(this.modelTracker);
@@ -262,15 +265,27 @@ export default class Viewer extends React.Component {
   }
 
   takeSnapshot() {
-    this.canvas ? this.canvas.takeSnapshot() : (() => {})();
+    const alert = Alert.toastInfo("Generando archivo");
+    const onSuccess = () => {
+      alert.close();
+      Alert.toastSuccess("Listo");
+    };
+    const onError = () => {
+      alert.close();
+      Alert.toastError("Algo salió mal");
+    };
+    this.canvas ? this.canvas.takeSnapshot(onSuccess, onError) : (() => {})();
   }
 
   loadBcf(index, download) {
     this.setState({ annotations: [] });
-    this.canvas ? this.canvas.loadBcf(this.state.bcf[index], download) : (() => {})();
+    this.canvas
+      ? this.canvas.loadBcf(this.state.bcf[index], download)
+      : (() => {})();
   }
 
   downloadExcel(id) {
+    const alert = Alert.toastInfo("Generando archivo");
     var { hash } = this.props.match.params;
 
     fetch(`https://bimapi.velociti.cl/dev_get_excel/${hash}/${id}`, {
@@ -280,6 +295,8 @@ export default class Viewer extends React.Component {
     })
       .then((res) => res.blob())
       .then((blob) => {
+        alert.close();
+        Alert.toastSuccess("Listo");
         var url = window.URL.createObjectURL(blob);
         var a = document.createElement("a");
         a.href = url;
@@ -287,193 +304,221 @@ export default class Viewer extends React.Component {
         a.click();
         a.remove();
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        alert.close();
+        Alert.toastError("Algo salió mal");
+      });
   }
 
-  async downloadPDF() {
-    const canvas = document.getElementById("canvas");
-    const annotationsMarkers = document.getElementsByClassName(
-      "annotation-marker"
-    );
-    const annotationsLabels = document.getElementsByClassName(
-      "annotation-label"
-    );
-    const rulersDots = document.getElementsByClassName("viewer-ruler-dot");
-    const rulersWires = document.getElementsByClassName("viewer-ruler-wire");
-    const rulersLabels = document.getElementsByClassName("viewer-ruler-label");
-
-    var cwidth = canvas.width;
-    var cheight = canvas.height;
-
-    var doc = new jsPDF({
-      orientation: "l",
-      unit: "px",
-      format: [1.3333 * cwidth, 1.3333 * cheight],
-    });
-
-    doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, cwidth, cheight); // Draw model;
-
-    for (let element of annotationsMarkers) {
-      let left = parseInt(element.style.left);
-      let top = parseInt(element.style.top);
-      await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
-        (canvasElement) => {
-          let width = canvasElement.width;
-          let height = canvasElement.height;
-          doc.addImage(
-            canvasElement.toDataURL("image/png"),
-            "PNG",
-            left,
-            top,
-            width,
-            height
-          );
-        }
+  async downloadPdf() {
+    const alert = Alert.toastInfo("Generando archivo");
+    try {
+      const canvas = document.getElementById("canvas");
+      const annotationsMarkers = document.getElementsByClassName(
+        "annotation-marker"
       );
-    }
-
-    for (let element of annotationsLabels) {
-      let left = parseInt(element.style.left) - 15;
-      let top = parseInt(element.style.top);
-      await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
-        (canvasElement) => {
-          let width = canvasElement.width;
-          let height = canvasElement.height;
-          doc.addImage(
-            canvasElement.toDataURL("image/png"),
-            "PNG",
-            left,
-            top,
-            width,
-            height
-          );
-        }
+      const annotationsLabels = document.getElementsByClassName(
+        "annotation-label"
       );
-    }
-
-    for (let element of rulersDots) {
-      let left = parseInt(element.style.left);
-      let top = parseInt(element.style.top);
-      await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
-        (canvasElement) => {
-          let width = canvasElement.width;
-          let height = canvasElement.height;
-          doc.addImage(
-            canvasElement.toDataURL("image/png"),
-            "PNG",
-            left,
-            top,
-            width,
-            height
-          );
-        }
+      const rulersDots = document.getElementsByClassName("viewer-ruler-dot");
+      const rulersWires = document.getElementsByClassName("viewer-ruler-wire");
+      const rulersLabels = document.getElementsByClassName(
+        "viewer-ruler-label"
       );
-    }
 
-    for (let element of rulersWires) {
-      let left = parseInt(element.style.left);
-      let top = parseInt(element.style.top);
-      await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
-        (canvasElement) => {
-          let width = canvasElement.width;
-          let height = canvasElement.height;
-          doc.addImage(
-            canvasElement.toDataURL("image/png"),
-            "PNG",
-            left,
-            top,
-            width,
-            height
-          );
-        }
-      );
-    }
+      var cwidth = canvas.width;
+      var cheight = canvas.height;
 
-    for (let element of rulersLabels) {
-      let left = parseInt(element.style.left);
-      let top = parseInt(element.style.top);
-      await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
-        (canvasElement) => {
-          let width = canvasElement.width;
-          let height = canvasElement.height;
-          doc.addImage(
-            canvasElement.toDataURL("image/png"),
-            "PNG",
-            left,
-            top,
-            width,
-            height
-          );
-        }
-      );
+      var doc = new jsPDF({
+        orientation: "l",
+        unit: "px",
+        format: [1.3333 * cwidth, 1.3333 * cheight],
+      });
+
+      doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, cwidth, cheight); // Draw model;
+
+      for (let element of annotationsMarkers) {
+        let left = parseInt(element.style.left);
+        let top = parseInt(element.style.top);
+        await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
+          (canvasElement) => {
+            let width = canvasElement.width;
+            let height = canvasElement.height;
+            doc.addImage(
+              canvasElement.toDataURL("image/png"),
+              "PNG",
+              left,
+              top,
+              width,
+              height
+            );
+          }
+        );
+      }
+
+      for (let element of annotationsLabels) {
+        let left = parseInt(element.style.left) - 15;
+        let top = parseInt(element.style.top);
+        await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
+          (canvasElement) => {
+            let width = canvasElement.width;
+            let height = canvasElement.height;
+            doc.addImage(
+              canvasElement.toDataURL("image/png"),
+              "PNG",
+              left,
+              top,
+              width,
+              height
+            );
+          }
+        );
+      }
+
+      for (let element of rulersDots) {
+        let left = parseInt(element.style.left);
+        let top = parseInt(element.style.top);
+        await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
+          (canvasElement) => {
+            let width = canvasElement.width;
+            let height = canvasElement.height;
+            doc.addImage(
+              canvasElement.toDataURL("image/png"),
+              "PNG",
+              left,
+              top,
+              width,
+              height
+            );
+          }
+        );
+      }
+
+      for (let element of rulersWires) {
+        let left = parseInt(element.style.left);
+        let top = parseInt(element.style.top);
+        await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
+          (canvasElement) => {
+            let width = canvasElement.width;
+            let height = canvasElement.height;
+            doc.addImage(
+              canvasElement.toDataURL("image/png"),
+              "PNG",
+              left,
+              top,
+              width,
+              height
+            );
+          }
+        );
+      }
+
+      for (let element of rulersLabels) {
+        let left = parseInt(element.style.left);
+        let top = parseInt(element.style.top);
+        await html2canvas(element, { backgroundColor: "rgba(0,0,0,0)" }).then(
+          (canvasElement) => {
+            let width = canvasElement.width;
+            let height = canvasElement.height;
+            doc.addImage(
+              canvasElement.toDataURL("image/png"),
+              "PNG",
+              left,
+              top,
+              width,
+              height
+            );
+          }
+        );
+      }
+
+      alert.close();
+      Alert.toastSuccess("Listo");
+      doc.save(this.state.modelName + ".pdf");
+    } catch (error) {
+      alert.close();
+      Alert.toastError("Algo salió mal");
     }
-    doc.save(this.state.modelName + ".pdf");
   }
 
   async downloadBcf(annotations) {
-    const canvas = document.getElementById("canvas");
-    const annotationsMarkers = document.getElementsByClassName(
-      "annotation-marker"
-    );
+    const alert = Alert.toastInfo("Generando archivo");
+    try {
+      const canvas = document.getElementById("canvas");
+      const annotationsMarkers = document.getElementsByClassName(
+        "annotation-marker"
+      );
 
-    var cwidth = canvas.width;
-    var cheight = canvas.height;
+      var cwidth = canvas.width;
+      var cheight = canvas.height;
 
-    var doc = new jsPDF({
-      orientation: "l",
-      unit: "px",
-      format: [1.3333 * cwidth, 1.3333 * cheight],
-    });
-
-    /* Draw canvas */
-    doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, cwidth, cheight); // Draw model;
-
-    var annotationsCount = 0;
-    for (let element of annotationsMarkers) {
-      let canvasPos = annotations[annotationsCount++].canvasPos;
-      //let rect = element.getBoundingClientRect();
-      let left = canvasPos[0];
-      let top = canvasPos[1];
-      await html2canvas(element, {
-        backgroundColor: "rgba(0,0,0,0)",
-      }).then((canvasElement) => {
-        let width = canvasElement.width;
-        let height = canvasElement.height;
-        doc.addImage(
-          canvasElement.toDataURL("image/png"),
-          "PNG",
-          left,
-          top,
-          width,
-          height
-        );
+      var doc = new jsPDF({
+        orientation: "l",
+        unit: "px",
+        format: [1.3333 * cwidth, 1.3333 * cheight],
       });
-    }
 
-    /* Write annotations content */
-    doc.addPage();
-    var top = 40;
-    const left = 20;
-    const innerWidth = cwidth - 20 - 20;
-    for (let element of annotations) {
-      doc.setFontSize(20);
-      let title = element.number + ". " + element.name;
-      let tsize = doc.getTextDimensions(title);
-      let tsplit = doc.splitTextToSize(title, innerWidth);
-      doc.text(tsplit, left, top);
-      top += tsize.h * tsplit.length;
+      /* Draw canvas */
+      doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, cwidth, cheight); // Draw model;
 
-      doc.setFontSize(16);
-      let bsize = doc.getTextDimensions(element.description);
-      let bsplit = doc.splitTextToSize(element.description, innerWidth);
-      doc.text(bsplit, left, top);
-      top += bsize.h * bsplit.length;
+      var annotationsCount = 0;
+      for (let element of annotationsMarkers) {
+        let canvasPos = annotations[annotationsCount++].canvasPos;
+        //let rect = element.getBoundingClientRect();
+        let left = canvasPos[0];
+        let top = canvasPos[1];
+        await html2canvas(element, {
+          backgroundColor: "rgba(0,0,0,0)",
+        }).then((canvasElement) => {
+          let width = canvasElement.width;
+          let height = canvasElement.height;
+          doc.addImage(
+            canvasElement.toDataURL("image/png"),
+            "PNG",
+            left,
+            top,
+            width,
+            height
+          );
+        });
+      }
 
-      doc.line(0, top, 1.3333 * cwidth, top);
+      /* Write annotations content */
+      doc.addPage();
+      var top = 40;
+      const left = 20;
+      const innerWidth = cwidth - 20 - 20;
+
+      doc.setFontSize(24);
+      doc.text("Observaciones", left, top);
       top += 40;
-    }
 
-    doc.save(this.state.modelName + ".pdf");
+      var number = 1;
+      for (let element of annotations) {
+        doc.setFontSize(20);
+        let title = number++ + ". " + element.name;
+        let tsize = doc.getTextDimensions(title);
+        let tsplit = doc.splitTextToSize(title, innerWidth);
+        doc.text(tsplit, left, top);
+        top += tsize.h * tsplit.length;
+
+        doc.setFontSize(16);
+        let bsize = doc.getTextDimensions(element.description);
+        let bsplit = doc.splitTextToSize(element.description, innerWidth);
+        doc.text(bsplit, left, top);
+        top += bsize.h * bsplit.length;
+
+        doc.line(0, top, 1.3333 * cwidth, top);
+        top += 40;
+      }
+
+      alert.close();
+      Alert.toastSuccess("Listo");
+      doc.save(this.state.modelName + ".pdf");
+    } catch (error) {
+      alert.close();
+      Alert.toastError("Algo salió mal");
+    }
   }
 
   //------------------------------------------------------------------------------------------------------------------
@@ -516,10 +561,10 @@ export default class Viewer extends React.Component {
   }
 
   saveBcf() {
+    const alert = Alert.toastInfo("Guardando...");
     const { hash } = this.props.match.params;
     const newBcf = this.canvas ? this.canvas.createBcf() : {};
     const annotations = this.canvas ? this.canvas.getAnnotations() : [];
-    console.log(annotations);
     const bcf = [...this.state.bcf, { bcf: newBcf, annotations: annotations }];
 
     this.setState({
@@ -536,8 +581,14 @@ export default class Viewer extends React.Component {
       }),
     })
       .then((res) => res.json())
-      .then((res) => console.log(res))
-      .catch((err) => console.error(err));
+      .then((res) => {
+        alert.close();
+        Alert.toastSuccess("Guardado");
+      })
+      .catch((err) => {
+        alert.close();
+        Alert.toastError("Algo salió mal");
+      });
   }
 
   destroyBcf(index) {
@@ -568,16 +619,16 @@ export default class Viewer extends React.Component {
   }
 
   render() {
+    if (this.state.loading) {
+      Alert.alertError(
+        "Oops...",
+        "Alguno de los modelos aún esta siendo procesado, inténtelo nuevamente más tarde."
+      );
+      return null;
+    }
+
     return (
       <React.Fragment>
-        <Snackbar
-          anchorOrigin={{ vertical: "top", horizontal: "center" }}
-          open={this.state.loading}
-        >
-          <Alert elevation={6} variant="filled" severity="error">
-            El modelo aún esta siendo procesado, inténtelo más tarde.
-          </Alert>
-        </Snackbar>
         <CanvasContextMenu
           entity={this.state.entity}
           open={this.state.openCanvasContextMenu}
@@ -651,7 +702,7 @@ export default class Viewer extends React.Component {
               this.updateAnnotation(index, name, description),
             takeSnapshot: () => this.takeSnapshot(),
             downloadExcel: (id) => this.downloadExcel(id),
-            downloadPDF: () => this.downloadPDF(),
+            downloadPdf: () => this.downloadPdf(),
             showAll: () => this.showAll(),
             getModelMeta: (id) => this.getModelMeta(id),
             getModelsByType: (type) => this.getModelsByType(type),

@@ -13,6 +13,7 @@ import MenuItem from "@material-ui/core/MenuItem";
 import { FaFilePdf } from "react-icons/fa";
 import { SiJson } from "react-icons/si";
 import { makeStyles } from "@material-ui/core/styles";
+import Alert from "../components/Alert";
 
 const useStyles = makeStyles((theme) => ({
   icon: {
@@ -53,13 +54,23 @@ const BCF = (props) => {
   };
 
   const downloadJson = () => {
-    var url = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = `${name}.json`;
-    a.click();
-    a.remove();
-    handleClose()
+    const alert = Alert.toastInfo("Generando archivo");
+    try {
+      handleClose();
+      var url =
+        "data:text/json;charset=utf-8," +
+        encodeURIComponent(JSON.stringify(data));
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = `${name}.json`;
+      a.click();
+      a.remove();
+      alert.close();
+      Alert.toastSuccess("Listo");
+    } catch (error) {
+      alert.close();
+      Alert.toastError("Algo salió mal");
+    }
   };
 
   const downloadPdf = () => {
@@ -67,8 +78,16 @@ const BCF = (props) => {
   };
 
   const deleteBcf = () => {
-    props.onDelete(props.id);
-    setDeleted(true);
+    Alert.alertWarning(
+      "¿Desea eliminar la siguiente observación?",
+      `<img alt='' style='max-width: 100%;' src='${img}' />`,
+      {okText: "Eliminar"}
+    ).then((result) => {
+      if (result.value) {
+        props.onDelete(props.id);
+        setDeleted(true);
+      }
+    });
   };
 
   const setBcf = () => {
