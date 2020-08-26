@@ -40,6 +40,7 @@ export default class Viewer extends React.Component {
       closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
       signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
       signalMount: () => this.signalMount(),
+      signalDownloadBcf: (annotations) => this.renderBcf(annotations)
     });
   }
 
@@ -264,9 +265,9 @@ export default class Viewer extends React.Component {
     this.canvas ? this.canvas.takeSnapshot() : (() => {})();
   }
 
-  loadBcf(index) {
+  loadBcf(index, download) {
     this.setState({ annotations: [] });
-    this.canvas ? this.canvas.loadBcf(this.state.bcf[index]) : (() => {})();
+    this.canvas ? this.canvas.loadBcf(this.state.bcf[index], download) : (() => {})();
   }
 
   downloadExcel(id) {
@@ -409,6 +410,72 @@ export default class Viewer extends React.Component {
     doc.save(this.state.modelName + ".pdf");
   }
 
+  async downloadBcf(annotations) {
+    const canvas = document.getElementById("canvas");
+    const annotationsMarkers = document.getElementsByClassName(
+      "annotation-marker"
+    );
+
+    var cwidth = canvas.width;
+    var cheight = canvas.height;
+
+    var doc = new jsPDF({
+      orientation: "l",
+      unit: "px",
+      format: [1.3333 * cwidth, 1.3333 * cheight],
+    });
+
+    /* Draw canvas */
+    doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, cwidth, cheight); // Draw model;
+
+    var annotationsCount = 0;
+    for (let element of annotationsMarkers) {
+      let canvasPos = annotations[annotationsCount++].canvasPos;
+      //let rect = element.getBoundingClientRect();
+      let left = canvasPos[0];
+      let top = canvasPos[1];
+      await html2canvas(element, {
+        backgroundColor: "rgba(0,0,0,0)",
+      }).then((canvasElement) => {
+        let width = canvasElement.width;
+        let height = canvasElement.height;
+        doc.addImage(
+          canvasElement.toDataURL("image/png"),
+          "PNG",
+          left,
+          top,
+          width,
+          height
+        );
+      });
+    }
+
+    /* Write annotations content */
+    doc.addPage();
+    var top = 40;
+    const left = 20;
+    const innerWidth = cwidth - 20 - 20;
+    for (let element of annotations) {
+      doc.setFontSize(20);
+      let title = element.number + ". " + element.name;
+      let tsize = doc.getTextDimensions(title);
+      let tsplit = doc.splitTextToSize(title, innerWidth);
+      doc.text(tsplit, left, top);
+      top += tsize.h * tsplit.length;
+
+      doc.setFontSize(16);
+      let bsize = doc.getTextDimensions(element.description);
+      let bsplit = doc.splitTextToSize(element.description, innerWidth);
+      doc.text(bsplit, left, top);
+      top += bsize.h * bsplit.length;
+
+      doc.line(0, top, 1.3333 * cwidth, top);
+      top += 40;
+    }
+
+    doc.save(this.state.modelName + ".pdf");
+  }
+
   //------------------------------------------------------------------------------------------------------------------
   // Signals
   //------------------------------------------------------------------------------------------------------------------
@@ -452,7 +519,7 @@ export default class Viewer extends React.Component {
     const { hash } = this.props.match.params;
     const newBcf = this.canvas ? this.canvas.createBcf() : {};
     const annotations = this.canvas ? this.canvas.getAnnotations() : [];
-    console.log(annotations)
+    console.log(annotations);
     const bcf = [...this.state.bcf, { bcf: newBcf, annotations: annotations }];
 
     this.setState({
@@ -494,6 +561,10 @@ export default class Viewer extends React.Component {
       .then((res) => res.json())
       .then((res) => console.log(res))
       .catch((err) => console.error(err));
+  }
+
+  renderBcf(annotations) {
+    this.downloadBcf(annotations);
   }
 
   render() {
@@ -585,8 +656,9 @@ export default class Viewer extends React.Component {
             getModelMeta: (id) => this.getModelMeta(id),
             getModelsByType: (type) => this.getModelsByType(type),
             saveBcf: () => this.saveBcf(),
-            loadBcf: (index) => this.loadBcf(index),
+            loadBcf: (index, download) => this.loadBcf(index, download),
             destroyBcf: (index) => this.destroyBcf(index),
+            downloadBcf: (index) => this.downloadBcf(index),
           }}
         />
       </React.Fragment>
