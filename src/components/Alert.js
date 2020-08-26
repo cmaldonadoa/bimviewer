@@ -38,20 +38,24 @@ export default {
       showConfirmButton: false,
     }),
 
-  alertWarning: (title, message, config) =>
-    Swal.fire({
+  alertWarningMixin: (title, message, config) =>
+    Swal.mixin({
       icon: "warning",
       title: title,
       html: message,
       showConfirmButton: true,
       showCancelButton: true,
       cancelButtonText: "Cancelar",
-      confirmButtonText: config.okText,      
+      confirmButtonText: config.okText,
       reverseButtons: true,
       focusConfirm: false,
+      buttonsStyling: false,
       customClass: {
-        confirmButton: "MuiButtonBase-root MuiButton-root MuiButton-contained MuiButton-containedSecondary MuiButton-disableElevation",
-        cancelButton: "MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-colorInherit MuiButton-disableElevation"
-      }
+        actions: "justify-content-end",
+        confirmButton:
+          "ml-2 MuiButtonBase-root MuiButton-root MuiButton-contained MuiButton-containedSecondary MuiButton-disableElevation .MuiButton-containedSizeSmall MuiButton-sizeSmall",
+        cancelButton:
+          "MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-colorInherit MuiButton-disableElevation MuiButton-sizeSmall",
+      },
     }),
 };

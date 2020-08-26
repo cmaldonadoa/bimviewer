@@ -1,7 +1,9 @@
 import React from "react";
+import ReactDOMServer from "react-dom/server";
 import DoubleArrowIcon from "@material-ui/icons/DoubleArrow";
 import ListItem from "@material-ui/core/ListItem";
 import IconButton from "@material-ui/core/IconButton";
+import Button from "@material-ui/core/Button";
 import Divider from "@material-ui/core/Divider";
 import ListItemIcon from "@material-ui/core/ListItemIcon";
 import ListItemText from "@material-ui/core/ListItemText";
@@ -78,11 +80,21 @@ const BCF = (props) => {
   };
 
   const deleteBcf = () => {
-    Alert.alertWarning(
+    // Inject CSS into the DOM
+    const injectButton1 = (
+      <Button className="d-none" variant="contained" color="secondary" />
+    );
+    const injectButton2 = <Button className="d-none" color="inherit" />;
+    const css1 = ReactDOMServer.renderToString(injectButton1);
+    const css2 = ReactDOMServer.renderToString(injectButton2);
+
+    const alert = Alert.alertWarningMixin(
       "¿Desea eliminar la siguiente observación?",
-      `<img alt='' style='max-width: 100%;' src='${img}' />`,
-      {okText: "Eliminar"}
-    ).then((result) => {
+      `<img alt='' style='max-width: 100%;' src='${img}' /> ${css1} ${css2}`,
+      { okText: "Eliminar" }
+    );
+
+    alert.fire().then((result) => {
       if (result.value) {
         props.onDelete(props.id);
         setDeleted(true);
