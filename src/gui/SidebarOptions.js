@@ -50,7 +50,6 @@ const SidebarOptions = (props) => {
   const [storey, setStorey] = React.useState("");
   const [fpState, setFpState] = React.useState(false);
   const [borderState, setBorderState] = React.useState(true);
-  const [openAnnotations, setOpenAnnotations] = React.useState(false);
   const [openMeasurements, setOpenMeasurements] = React.useState(false);
   const [openSectionPlanes, setOpenSectionPlanes] = React.useState(false);
   const [openBcf, setOpenBcf] = React.useState(false);
@@ -383,7 +382,8 @@ const SidebarOptions = (props) => {
                           name={`${props.project}-bcf${index}`}
                           img={viewpoint.bcf.snapshot.snapshot_data}
                           onDelete={tools.destroyBcf}
-                          onClick={tools.loadBcf}
+                          onSelect={tools.loadBcf}
+                          onDownload={tools.downloadBcf}
                           id={index}
                         />
                       ) : null
