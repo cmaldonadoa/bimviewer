@@ -7,7 +7,7 @@ import AddIcon from "@material-ui/icons/Add";
 import Button from "@material-ui/core/Button";
 import DeleteIcon from "@material-ui/icons/Delete";
 import SaveIcon from "@material-ui/icons/Save";
-import VisibilityIcon from "@material-ui/icons/Visibility";
+import StorageIcon from '@material-ui/icons/Storage';
 import LabelIcon from "@material-ui/icons/Label";
 import {
   StyledListItemButton,
@@ -363,7 +363,7 @@ const SidebarOptions = (props) => {
             className={classes.nested}
           ></StyledListItemButton>
           <StyledListItemButton
-            icon={<VisibilityIcon />}
+            icon={<StorageIcon />}
             label="Ver guardados"
             onClick={() =>
               openDrawer(
@@ -410,7 +410,7 @@ const SidebarOptions = (props) => {
 
         <StyledListItemButton
           label="Descargar como PDF"
-          onClick={() => tools.downloadPDF()}
+          onClick={() => tools.downloadPdf()}
           icon={<FaFilePdf style={{ width: "24px", height: "24px" }} />}
         />
 
