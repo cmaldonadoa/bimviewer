@@ -35,6 +35,7 @@ export default class Canvas extends React.Component {
     this.openCanvasContextMenu = props.openCanvasContextMenu;
     this.closeCanvasContextMenu = props.closeCanvasContextMenu;
     this.signalMount = props.signalMount;
+    this.signalDownloadBcf = props.signalDownloadBcf;
   }
 
   setModelTracker(modelTracker) {
@@ -425,7 +426,7 @@ export default class Canvas extends React.Component {
           this.annotations.createAnnotation({
             id: id,
             pickResult: hit,
-            occludable: true,
+            occludable: false,
             labelShown: true,
             values: {
               // HTML template values
@@ -498,16 +499,17 @@ export default class Canvas extends React.Component {
   //------------------------------------------------------------------------------------------------------------------
   loadAnnotations(annotations) {
     const scene = window.viewer.scene;
+    var cache = [];
     for (let annotation of annotations) {
       const wp = annotation.worldPos;
       const id = "annotation-" + this.annotationsCount;
       const title = annotation.title;
       const desc = annotation.description;
-      this.annotations.createAnnotation({
+      const newAnnotation = this.annotations.createAnnotation({
         id: id,
         entity: scene.objects[annotation.entity],
         worldPos: [wp["0"], wp["1"], wp["2"]],
-        occludable: true,
+        occludable: false,
         labelShown: true,
         values: {
           // HTML template values
@@ -517,12 +519,17 @@ export default class Canvas extends React.Component {
         },
       });
 
-      this.props.signalNewAnnotation({
+      const annotationObj = {
         id: id,
         name: title,
         description: desc,
-      });
+        number: this.annotationsCount - 1,
+        canvasPos: newAnnotation.canvasPos,
+      };
+      this.props.signalNewAnnotation(annotationObj);
+      cache.push(annotationObj);
     }
+    return cache;
   }
 
   mountTree() {
@@ -1110,7 +1117,13 @@ export default class Canvas extends React.Component {
     return viewpoint;
   }
 
-  loadBcf(data) {
+  loadBcf(data, download) {
+    this.annotations.clear();
+    this.annotationsCount = 1;
+    const annotations = this.loadAnnotations(
+      data.annotations.filter((x) => Boolean(x))
+    );
+
     const bcf = data.bcf;
     const selected = bcf.components.selection.map(
       (element) => element.ifc_guid
@@ -1125,8 +1138,8 @@ export default class Canvas extends React.Component {
       defaultInvisible: true,
     });
 
-    this.annotations.clear();
-    this.annotationsCount = 1;
-    this.loadAnnotations(data.annotations.filter((x) => Boolean(x)));
+    if (download) {
+      this.signalDownloadBcf(annotations);
+    }
   }
 }
