@@ -24,7 +24,8 @@ export default class Canvas extends React.Component {
     this.mouseCreateAnnotations = false;
     this.measureClicks = 0; // Counter to disable measure distance creation
     this.planesCounter = 0;
-    this.annotationsCount = 1;
+    this.annotationsCount = 0;
+    this.glyphsCount = 1;
 
     this.modelTracker = null;
 
@@ -420,7 +421,7 @@ export default class Canvas extends React.Component {
         });
 
         if (hit && this.mouseCreateAnnotations) {
-          const id = "annotation-" + this.annotationsCount;
+          const id = "annotation-" + this.annotationsCount++;
           const title = "Sin título";
           const desc = "Sin descripción";
           this.annotations.createAnnotation({
@@ -430,7 +431,7 @@ export default class Canvas extends React.Component {
             labelShown: true,
             values: {
               // HTML template values
-              glyph: this.annotationsCount++,
+              glyph: this.glyphsCount++,
               title: title,
               description: desc,
             },
@@ -502,7 +503,7 @@ export default class Canvas extends React.Component {
     var cache = [];
     for (let annotation of annotations) {
       const wp = annotation.worldPos;
-      const id = "annotation-" + this.annotationsCount;
+      const id = "annotation-" + this.annotationsCount++;
       const title = annotation.title;
       const desc = annotation.description;
       const newAnnotation = this.annotations.createAnnotation({
@@ -513,7 +514,7 @@ export default class Canvas extends React.Component {
         labelShown: true,
         values: {
           // HTML template values
-          glyph: this.annotationsCount++,
+          glyph: this.glyphsCount++,
           title: title,
           description: desc,
         },
@@ -523,7 +524,6 @@ export default class Canvas extends React.Component {
         id: id,
         name: title,
         description: desc,
-        number: this.annotationsCount - 1,
         canvasPos: newAnnotation.canvasPos,
       };
       this.props.signalNewAnnotation(annotationObj);
@@ -1084,6 +1084,13 @@ export default class Canvas extends React.Component {
 
   destroyAnnotation(id) {
     this.annotations.destroyAnnotation(id);
+    var glyphsCount = 1;
+    console.log(this.annotations);
+    Object.keys(this.annotations.annotations).forEach((annotationId) => {
+      let annotation = this.annotations.annotations[annotationId];
+      annotation.setField("glyph", glyphsCount++);
+    });
+    this.glyphsCount = glyphsCount;
   }
 
   updateAnnotation(id, name, description) {
@@ -1100,12 +1107,18 @@ export default class Canvas extends React.Component {
     this.annotations.annotations[id].setMarkerShown(!marker);
   }
 
-  takeSnapshot() {
-    const img = window.viewer.getSnapshot();
-    var a = document.createElement("a");
-    a.href = img;
-    a.download = `${this.modelName}.png`;
-    a.click();
+  takeSnapshot(onSuccess, onError) {
+    try {
+      const img = window.viewer.getSnapshot();
+      var a = document.createElement("a");
+      a.href = img;
+      a.download = `${this.modelName}.png`;
+      a.click();
+      onSuccess();
+    } catch (error) {
+      console.log(error)
+      onError();
+    }
   }
 
   createBcf() {
@@ -1119,7 +1132,7 @@ export default class Canvas extends React.Component {
 
   loadBcf(data, download) {
     this.annotations.clear();
-    this.annotationsCount = 1;
+    this.glyphsCount = 1;
     const annotations = this.loadAnnotations(
       data.annotations.filter((x) => Boolean(x))
     );
