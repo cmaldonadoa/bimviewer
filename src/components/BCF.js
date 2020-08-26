@@ -20,7 +20,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const StyledMenuItemButton = (props) => {
+const StyledMenuItemButton = React.forwardRef((props, ref) => {
   const classes = useStyles();
   const label = props.label;
   const onClick = props.onClick;
@@ -35,7 +35,7 @@ const StyledMenuItemButton = (props) => {
       <ListItemText primary={label} />
     </MenuItem>
   );
-};
+});
 
 const BCF = (props) => {
   const [anchorEl, setAnchorEl] = React.useState(null);
@@ -63,7 +63,7 @@ const BCF = (props) => {
   };
 
   const downloadPdf = () => {
-    console.log("pdf");
+    props.onSelect(props.id, true);
   };
 
   const deleteBcf = () => {
@@ -72,7 +72,7 @@ const BCF = (props) => {
   };
 
   const setBcf = () => {
-    props.onClick(props.id);
+    props.onSelect(props.id);
   };
 
   if (deleted) {
