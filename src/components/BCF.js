@@ -16,6 +16,7 @@ import { FaFilePdf } from "react-icons/fa";
 import { SiJson } from "react-icons/si";
 import { makeStyles } from "@material-ui/core/styles";
 import Alert from "../components/Alert";
+import Typography from "@material-ui/core/Typography";
 
 const useStyles = makeStyles((theme) => ({
   icon: {
@@ -43,6 +44,7 @@ const StyledMenuItemButton = React.forwardRef((props, ref) => {
 const BCF = (props) => {
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [deleted, setDeleted] = React.useState(false);
+  const id = props.id;
   const img = props.img;
   const data = props.data;
   const name = props.name;
@@ -64,7 +66,7 @@ const BCF = (props) => {
         encodeURIComponent(JSON.stringify(data));
       var a = document.createElement("a");
       a.href = url;
-      a.download = `${name}.json`;
+      a.download = `${name}_${getId()}.json`;
       a.click();
       a.remove();
       alert.close();
@@ -76,7 +78,7 @@ const BCF = (props) => {
   };
 
   const downloadPdf = () => {
-    props.onSelect(props.id, true);
+    props.onSelect(id, true);
   };
 
   const deleteBcf = () => {
@@ -96,14 +98,20 @@ const BCF = (props) => {
 
     alert.fire().then((result) => {
       if (result.value) {
-        props.onDelete(props.id);
+        props.onDelete(id);
         setDeleted(true);
       }
     });
   };
 
   const setBcf = () => {
-    props.onSelect(props.id);
+    props.onSelect(id);
+  };
+
+  const getId = () => {
+    let num = "" + id;
+    while (num.length < 4) num = "0" + num;
+    return "OBS-" + num;
   };
 
   if (deleted) {
@@ -119,6 +127,12 @@ const BCF = (props) => {
             xs={true}
           >
             <img alt="" style={{ maxWidth: "100%" }} src={img} />
+            <Typography
+              className="position-absolute p-3"
+              style={{ left: 0, top: 0 }}
+            >
+              {getId()}
+            </Typography>
           </Grid>
           <Grid
             className="d-flex align-items-center justify-content-center"
