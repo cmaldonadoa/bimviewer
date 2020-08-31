@@ -12,6 +12,7 @@ import FormControl from "@material-ui/core/FormControl";
 import Collapse from "@material-ui/core/Collapse";
 import ExpandLess from "@material-ui/icons/ExpandLess";
 import ExpandMore from "@material-ui/icons/ExpandMore";
+import Slider from "@material-ui/core/Slider";
 import { makeStyles } from "@material-ui/core/styles";
 import Typography from "@material-ui/core/Typography";
 
@@ -153,10 +154,37 @@ const StyledListItemAccordion = (props) => {
   );
 };
 
+const StyledListItemSlider = (props) => {
+  const classes = useStyles();
+  const label = props.label;
+  const onChange = props.onChange;
+  const value = props.value;
+  const className = props.className;
+  const min = props.min;
+  const max = props.max;
+  const step = props.step;
+
+  return (
+    <ListItem className={`${classes.noPaddingY} ${className}`}>
+      <ListItemText primary={label} />
+      <FormControl className={classes.formControl}>
+        <Slider
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={onChange}
+        />
+      </FormControl>
+    </ListItem>
+  );
+};
+
 export {
   StyledListItemButton,
   StyledListItemToggleButton,
   StyledListItemSwitch,
   StyledListItemSelect,
   StyledListItemAccordion,
+  StyledListItemSlider,
 };
