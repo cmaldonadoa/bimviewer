@@ -3,18 +3,19 @@ import { makeStyles } from "@material-ui/core/styles";
 import List from "@material-ui/core/List";
 import Divider from "@material-ui/core/Divider";
 import { FaFileExcel, FaFilePdf, FaFileImage } from "react-icons/fa";
-import AddIcon from "@material-ui/icons/Add";
 import Button from "@material-ui/core/Button";
 import DeleteIcon from "@material-ui/icons/Delete";
 import SaveIcon from "@material-ui/icons/Save";
-import StorageIcon from '@material-ui/icons/Storage';
-import LabelIcon from "@material-ui/icons/Label";
+import StorageIcon from "@material-ui/icons/Storage";
+import AddCircleIcon from "@material-ui/icons/AddCircle";
+import AddIcon from "@material-ui/icons/Add";
 import {
   StyledListItemButton,
   StyledListItemToggleButton,
   StyledListItemSwitch,
   StyledListItemSelect,
   StyledListItemAccordion,
+  StyledListItemSlider,
 } from "../components/StyledListItem";
 import BackdropMenu from "../components/BackdropMenu";
 import Annotation from "../components/Annotation";
@@ -44,6 +45,7 @@ const SidebarOptions = (props) => {
   const classes = useStyles();
   const [view, setView] = React.useState("perspective");
   const [control, setControl] = React.useState("orbit");
+  const [zoomRatio, setZoomRatio] = React.useState(0.2);
   const [openStorey, setOpenStorey] = React.useState(false);
   const [storeyModelType, setStoreyModelType] = React.useState("");
   const [storeyModel, setStoreyModel] = React.useState("");
@@ -75,25 +77,43 @@ const SidebarOptions = (props) => {
               onDelete={tools.destroyAnnotation}
               onSave={tools.saveAnnotation}
               onCheck={tools.toggleAnnotation}
+              onReply={tools.saveReply}
               id={index}
               name={annotation.name}
               description={annotation.description}
+              responsible={annotation.responsible}
+              specialty={annotation.specialty}
+              date={annotation.date}
+              replies={annotation.replies}
             />
           ) : null
         )
       )}
-      <div className="p-3">
-        <Button
-          disableElevation
-          variant="contained"
-          color="primary"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => tools.createAnnotations()}
-        >
-          Nueva
-        </Button>
-      </div>
+      {props.isBcfLoaded ? null : (
+        <div className="p-3">
+          <Button
+            disableElevation
+            variant="contained"
+            color="primary"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={tools.createAnnotations}
+          >
+            Nueva
+          </Button>
+          <Button
+            disableElevation
+            className="ml-3"
+            variant="contained"
+            color="primary"
+            size="small"
+            startIcon={<SaveIcon />}
+            onClick={tools.saveBcf}
+          >
+            Guardar
+          </Button>
+        </div>
+      )}
     </List>
   );
 
@@ -193,6 +213,11 @@ const SidebarOptions = (props) => {
     setOpenBcf(!openBcf);
   };
 
+  const handleZoomRatioChange = (event, value) => {
+    setZoomRatio(value)
+    tools.setZoom(value)
+  }
+
   return (
     <div className={classes.root}>
       <List component="nav">
@@ -235,7 +260,7 @@ const SidebarOptions = (props) => {
         />
 
         <StyledListItemSwitch
-          label="Primera Persona"
+          label="Primera persona"
           checked={fpState}
           onChange={handleFpChange}
         />
@@ -244,6 +269,15 @@ const SidebarOptions = (props) => {
           label="Bordes"
           checked={borderState}
           onChange={handleBorderState}
+        />
+
+        <StyledListItemSlider
+          label="Sensibilidad zoom"
+          value={zoomRatio}
+          onChange={handleZoomRatioChange}
+          min={0}
+          max={0.5}
+          step={0.01}
         />
 
         <Divider />
@@ -308,12 +342,12 @@ const SidebarOptions = (props) => {
         </StyledListItemAccordion>
 
         <StyledListItemAccordion
-          label={"Planos de Sección"}
+          label={"Planos de sección"}
           open={openSectionPlanes}
           onClick={handleOpenSectionPlanes}
         >
           <StyledListItemButton
-            icon={<AddIcon />}
+            icon={<AddCircleIcon />}
             label="Añadir"
             onClick={() => tools.createSectionPlane()}
             className={classes.nested}
@@ -332,7 +366,7 @@ const SidebarOptions = (props) => {
           onClick={handleOpenMeasurements}
         >
           <StyledListItemButton
-            icon={<AddIcon />}
+            icon={<AddCircleIcon />}
             label="Añadir"
             onClick={() => tools.measureDistance()}
             className={classes.nested}
@@ -351,17 +385,11 @@ const SidebarOptions = (props) => {
           onClick={handleOpenBcf}
         >
           <StyledListItemButton
-            icon={<SaveIcon />}
-            label="Guardar"
-            onClick={() => tools.saveBcf()}
-            className={classes.nested}
-          />
-          <StyledListItemButton
-            icon={<LabelIcon />}
-            label={"Anotaciones"}
+            icon={<AddCircleIcon />}
+            label="Crear"
             onClick={() => openDrawer("Anotaciones", annotationsContent)}
             className={classes.nested}
-          ></StyledListItemButton>
+          />
           <StyledListItemButton
             icon={<StorageIcon />}
             label="Ver guardados"
@@ -379,7 +407,7 @@ const SidebarOptions = (props) => {
                         <BCF
                           key={index}
                           data={viewpoint.bcf}
-                          name={`${props.project}-bcf${index}`}
+                          name={`${props.project}`}
                           img={viewpoint.bcf.snapshot.snapshot_data}
                           onDelete={tools.destroyBcf}
                           onSelect={tools.loadBcf}
