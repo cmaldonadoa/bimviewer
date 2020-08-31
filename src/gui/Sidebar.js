@@ -233,6 +233,7 @@ export default function Sidebar(props) {
                 project={props.project}
                 storeys={storeys}
                 tools={props.tools}
+                isBcfLoaded={props.isBcfLoaded}
                 secondDrawer={{
                   setContent: setSecondDrawerContent,
                   setOpen: setSecondDrawerOpen,
@@ -257,7 +258,12 @@ export default function Sidebar(props) {
           <Typography className={classes.drawerTitle} noWrap>
             {secondDrawerTitle}
           </Typography>
-          <IconButton onClick={() => setSecondDrawerOpen(false)}>
+          <IconButton
+            onClick={() => {
+              props.clearBcf();
+              setSecondDrawerOpen(false);
+            }}
+          >
             <CloseIcon />
           </IconButton>
         </div>
