@@ -109,7 +109,7 @@ const BCF = (props) => {
   };
 
   const getId = () => {
-    let num = "" + id;
+    let num = "" + (id + 1);
     while (num.length < 4) num = "0" + num;
     return "OBS-" + num;
   };
