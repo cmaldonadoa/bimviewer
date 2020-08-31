@@ -50,6 +50,7 @@ export default function ModelUploaderProjects(props) {
   const [modelName, setModelName] = React.useState("");
   const [currentProject, setCurrentProject] = React.useState(-1);
   const [modelType, setModelType] = React.useState("");
+  const [addModelCallback, setAddModelCallback] = React.useState(() => {})
   const size = 8;
 
   React.useEffect(() => {
@@ -83,11 +84,12 @@ export default function ModelUploaderProjects(props) {
     window.location.reload();
   };
 
-  const handleOpenNewModelMenu = (id) => {
+  const handleOpenNewModelMenu = (id, callback) => {
     if (!loading) {
       setOpenNewModel(!openNewModel);
       setCurrentProject(id);
       setModelName("");
+      setAddModelCallback(callback)
     }
   };
 
@@ -131,6 +133,7 @@ export default function ModelUploaderProjects(props) {
         .then((res) => {
           setLoading(false);
           handleOpenNewModelMenu();
+          addModelCallback();
         })
         .catch((err) => console.error(err));
     }
@@ -192,7 +195,7 @@ export default function ModelUploaderProjects(props) {
                 <ProjectBar
                   id={project.uuid}
                   name={project.name}
-                  onAdd={() => handleOpenNewModelMenu(project.id)}
+                  onAdd={(callback) => handleOpenNewModelMenu(project.id, callback)}
                   onOpen={() =>
                     window.open(`/development/v3/build/${project.uuid}`)
                   }
