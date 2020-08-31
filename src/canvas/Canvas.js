@@ -17,6 +17,7 @@ export default class Canvas extends React.Component {
     this.loading = 1;
     this.modelName = props.modelName;
     this.bcf = [];
+    this.zoomRatio = 0.2;
 
     /* Mouse left click action */
     this.mouseCreatePlanes = false;
@@ -63,6 +64,7 @@ export default class Canvas extends React.Component {
     cameraControl.panInertia = 0;
     cameraControl.navMode = "orbit";
     cameraControl.pivoting = true;
+    cameraControl.followPointer = true;
 
     const pivotElement = document
       .createRange()
@@ -134,15 +136,16 @@ export default class Canvas extends React.Component {
       "mousedown",
       (coords) => {
         if (this.mouseZoom) {
+          let zoomRatio = this.zoomRatio;
           if (scene.input.mouseDownLeft) {
             window.document.getElementById("canvas").style.cursor = "zoom-in";
             timeout = setInterval(function () {
-              camera.zoom(-0.2);
+              camera.zoom(-1 * zoomRatio);
             }, 0);
           } else if (scene.input.mouseDownRight) {
             window.document.getElementById("canvas").style.cursor = "zoom-out";
             timeout = setInterval(function () {
-              camera.zoom(0.2);
+              camera.zoom(zoomRatio);
             }, 0);
           }
         } else if (!this.mousePan) {
@@ -245,26 +248,6 @@ export default class Canvas extends React.Component {
             visible: selectionVisible.length > selected.length / 2,
             xrayed: selectionXRayed.length > selected.length / 2,
           });
-
-          /*
-          var hit = scene.pick({
-            canvasPos: coords,
-          });
-
-          if (hit) {
-            var entity = hit.entity;
-            var objectId = entity.id;
-
-
-            let x = coords[0];
-            let y = coords[1];
-
-            this.openCanvasContextMenu(x, y, entity, {
-              visible: this.visible.includes(objectId),
-              xrayed: this.xrayed.includes(objectId),
-              selected: this.selected.includes(objectId),
-            });
-          }*/
         }
       },
       this
@@ -424,13 +407,12 @@ export default class Canvas extends React.Component {
           const id = "annotation-" + this.annotationsCount++;
           const title = "Sin título";
           const desc = "Sin descripción";
-          this.annotations.createAnnotation({
+          const annotation = this.annotations.createAnnotation({
             id: id,
             pickResult: hit,
             occludable: false,
             labelShown: true,
             values: {
-              // HTML template values
               glyph: this.glyphsCount++,
               title: title,
               description: desc,
@@ -442,6 +424,8 @@ export default class Canvas extends React.Component {
             id: id,
             name: title,
             description: desc,
+            worldPos: annotation.worldPos,
+            entity: annotation.entity.id,
           });
         }
       },
@@ -504,7 +488,7 @@ export default class Canvas extends React.Component {
     for (let annotation of annotations) {
       const wp = annotation.worldPos;
       const id = "annotation-" + this.annotationsCount++;
-      const title = annotation.title;
+      const title = annotation.name;
       const desc = annotation.description;
       const newAnnotation = this.annotations.createAnnotation({
         id: id,
@@ -524,7 +508,12 @@ export default class Canvas extends React.Component {
         id: id,
         name: title,
         description: desc,
-        canvasPos: newAnnotation.canvasPos,
+        worldPos: [wp["0"], wp["1"], wp["2"]],
+        entity: annotation.entity,
+        responsible: annotation.responsible,
+        specialty: annotation.specialty,
+        date: annotation.date,
+        replies: annotation.replies ? annotation.replies : [],
       };
       this.props.signalNewAnnotation(annotationObj);
       cache.push(annotationObj);
@@ -1116,7 +1105,7 @@ export default class Canvas extends React.Component {
       a.click();
       onSuccess();
     } catch (error) {
-      console.log(error)
+      console.log(error);
       onError();
     }
   }
@@ -1131,8 +1120,7 @@ export default class Canvas extends React.Component {
   }
 
   loadBcf(data, download) {
-    this.annotations.clear();
-    this.glyphsCount = 1;
+    this.clearAnnotations();
     const annotations = this.loadAnnotations(
       data.annotations.filter((x) => Boolean(x))
     );
@@ -1154,5 +1142,14 @@ export default class Canvas extends React.Component {
     if (download) {
       this.signalDownloadBcf(annotations);
     }
+  }
+
+  clearAnnotations() {
+    this.annotations.clear();
+    this.glyphsCount = 1;
+  }
+
+  setZoomRatio(value) {
+    this.zoomRatio = value;
   }
 }

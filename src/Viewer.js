@@ -26,6 +26,7 @@ export default class Viewer extends React.Component {
       y: 0,
       annotations: [],
       bcf: [],
+      currentBcf: -1,
     };
     this.modelTracker = new ModelTracker();
     this.canvas = new Canvas({
@@ -93,17 +94,6 @@ export default class Viewer extends React.Component {
 
       this.canvas.setModelTracker(this.modelTracker);
       this.canvas.build();
-
-      /*
-      await fetch(`https://bimapi.velociti.cl/dev_get_annotations/${hash}`, {
-        headers: {
-          Authorization: "public_auth",
-        },
-      })
-        .then((res) => res.json())
-        .then((res) => this.canvas.loadAnnotations(res))
-        .catch((err) => console.log("No annotations"));
-      */
 
       await fetch(`https://bimapi.velociti.cl/dev_get_bcf/${hash}`, {
         headers: {
@@ -228,6 +218,10 @@ export default class Viewer extends React.Component {
     this.canvas ? this.canvas.setCameraMode(mode) : (() => {})();
   }
 
+  setZoom(value) {
+    this.canvas ? this.canvas.setZoomRatio(value) : (() => {})();
+  }
+
   createSectionPlane() {
     this.canvas ? this.canvas.createSectionPlane() : (() => {})();
   }
@@ -278,7 +272,7 @@ export default class Viewer extends React.Component {
   }
 
   loadBcf(index, download) {
-    this.setState({ annotations: [] });
+    this.setState({ annotations: [], currentBcf: index });
     this.canvas
       ? this.canvas.loadBcf(this.state.bcf[index], download)
       : (() => {})();
@@ -541,17 +535,71 @@ export default class Viewer extends React.Component {
     }));
   }
 
-  updateAnnotation(index, name, description) {
-    var annotations = [...this.state.annotations];
-    var id = annotations[index].id;
-    var newAnnotation = { id: id, name: name, description: description };
+  updateAnnotation(index, data) {
+    const { name, description, responsible, specialty, date } = data;
+    const annotations = [...this.state.annotations];
+    const annotation = annotations[index];
+    const id = annotation.id;
+    const newAnnotation = {
+      id: id,
+      name: name,
+      description: description,
+      worldPos: annotation.worldPos,
+      entity: annotation.entity,
+      responsible: responsible,
+      specialty: specialty,
+      date: date,
+    };
     annotations[index] = newAnnotation;
     this.canvas
       ? this.canvas.updateAnnotation(id, name, description)
       : (() => {})();
-    this.setState((prevState) => ({
+    this.setState({
       annotations: annotations,
-    }));
+    });
+  }
+
+  saveReply(index, data) {
+    const { hash } = this.props.match.params;
+    const { author, comment, date } = data;
+    const annotations = [...this.state.annotations];
+    const annotation = annotations[index];
+    const replies = annotation.replies;
+    const newAnnotation = {
+      ...annotation,
+      replies: [...replies, { author, comment, date }],
+    };
+    annotations[index] = newAnnotation;
+    const bcf = this.state.bcf[this.state.currentBcf];
+    bcf.annotations = annotations;
+
+    const bcfs = this.state.bcf;
+    bcfs[this.state.currentBcf] = bcf;
+
+    this.setState({
+      annotations: annotations,
+      bcf: bcfs,
+    });
+
+    const alert = Alert.toastInfo("Guardando...");
+    fetch(`https://bimapi.velociti.cl/dev_save_bcf/${hash}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        bcf: bcfs,
+      }),
+    })
+      .then((res) => res.json())
+      .then((res) => {
+        alert.close();
+        Alert.toastSuccess("Guardado");
+      })
+      .catch((err) => {
+        alert.close();
+        Alert.toastError("Algo salió mal");
+      });
   }
 
   toggleAnnotationVisibility(index) {
@@ -564,7 +612,7 @@ export default class Viewer extends React.Component {
     const alert = Alert.toastInfo("Guardando...");
     const { hash } = this.props.match.params;
     const newBcf = this.canvas ? this.canvas.createBcf() : {};
-    const annotations = this.canvas ? this.canvas.getAnnotations() : [];
+    const annotations = this.state.annotations;
     const bcf = [...this.state.bcf, { bcf: newBcf, annotations: annotations }];
 
     this.setState({
@@ -616,6 +664,14 @@ export default class Viewer extends React.Component {
 
   renderBcf(annotations) {
     this.downloadBcf(annotations);
+  }
+
+  clearBcf() {
+    this.canvas ? this.canvas.clearAnnotations() : (() => {})();
+    this.setState({
+      annotations: [],
+      currentBcf: -1,
+    });
   }
 
   render() {
@@ -683,6 +739,8 @@ export default class Viewer extends React.Component {
           }}
           annotations={this.state.annotations}
           bcf={this.state.bcf}
+          isBcfLoaded={this.state.currentBcf >= 0}
+          clearBcf={() => this.clearBcf()}
           tools={{
             getStoreys: (type) => this.getStoreys(type),
             setStorey: (value) => this.setStorey(value),
@@ -690,6 +748,7 @@ export default class Viewer extends React.Component {
             setProjection: (mode) => this.setProjection(mode),
             setFirstPerson: (mode) => this.setFirstPerson(mode),
             setCameraMode: (mode) => this.setCameraMode(mode),
+            setZoom: (value) => this.setZoom(value),
             createSectionPlane: () => this.createSectionPlane(),
             destroySectionPlane: () => this.destroySectionPlane(),
             fitModel: () => this.fitModel(),
@@ -698,8 +757,8 @@ export default class Viewer extends React.Component {
             createAnnotations: () => this.createAnnotations(),
             destroyAnnotation: (index) => this.removeAnnotation(index),
             toggleAnnotation: (index) => this.toggleAnnotationVisibility(index),
-            saveAnnotation: (index, name, description) =>
-              this.updateAnnotation(index, name, description),
+            saveAnnotation: (index, data) => this.updateAnnotation(index, data),
+            saveReply: (index, data) => this.saveReply(index, data),
             takeSnapshot: () => this.takeSnapshot(),
             downloadExcel: (id) => this.downloadExcel(id),
             downloadPdf: () => this.downloadPdf(),
