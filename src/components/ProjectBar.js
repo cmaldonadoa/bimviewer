@@ -128,7 +128,7 @@ const ProjectBar = (props) => {
     if (!loading) {
       setRequest(true);
     }
-  });
+  }, [loading, setRequest]);
 
   useInterval(() => {
     if (request) {
