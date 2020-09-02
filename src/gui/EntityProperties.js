@@ -92,7 +92,7 @@ export default function EntityProperties(props) {
 
   return (
     <div className={classes.root}>
-      <AppBar position="static">
+      <AppBar position="static" elevation={0}>
         <Tabs variant="scrollable" value={value} onChange={handleChange}>
           {Object.keys(props.tabs).map((tab, index) => (
             <Tab key={index} label={tab} {...a11yProps(index)} />

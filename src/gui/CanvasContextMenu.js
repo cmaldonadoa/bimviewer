@@ -5,8 +5,8 @@ import Divider from "@material-ui/core/Divider";
 import { GiCube } from "react-icons/gi";
 import { FiBox } from "react-icons/fi";
 import { BsEyeFill, BsEyeSlashFill } from "react-icons/bs";
-import CheckBoxOutlineBlankIcon from "@material-ui/icons/CheckBoxOutlineBlank";
-import CheckBoxIcon from "@material-ui/icons/CheckBox";
+//import CheckBoxOutlineBlankIcon from "@material-ui/icons/CheckBoxOutlineBlank";
+//import CheckBoxIcon from "@material-ui/icons/CheckBox";
 import ListItemIcon from "@material-ui/core/ListItemIcon";
 import Typography from "@material-ui/core/Typography";
 import { makeStyles } from "@material-ui/core/styles";
@@ -83,16 +83,16 @@ export default function TreeContextMenu(props) {
         }}
         onClick={(e) => handleClose()}
       >
-        <MenuItem onClick={(e) => props.callbacks.lookAt(props.entity.id)}>
+        <MenuItem onClick={(e) => props.callbacks.lookAt()}>
           <Typography variant="inherit">Mirar</Typography>
         </MenuItem>
         <MenuItem
           onClick={(e) => props.callbacks.toggleVisibility(props.entity)}
         >
           {props.state.visible ? (
-            <CustomMenuItem icon={<BsEyeSlashFill />} text="Ocultar" />
+            <CustomMenuItem icon={<BsEyeSlashFill />} text="Ocultar selección" />
           ) : (
-            <CustomMenuItem icon={<BsEyeFill />} text="Mostar" />
+            <CustomMenuItem icon={<BsEyeFill />} text="Mostar selección" />
           )}
         </MenuItem>
         <MenuItem onClick={(e) => props.callbacks.toggleXray(props.entity)}>
@@ -102,6 +102,7 @@ export default function TreeContextMenu(props) {
             <CustomMenuItem icon={<FiBox />} text="Definir transparente" />
           )}
         </MenuItem>
+        {/*
         <MenuItem onClick={(e) => props.callbacks.toggleSelect(props.entity)}>
           {props.state.selected ? (
             <CustomMenuItem
@@ -114,7 +115,7 @@ export default function TreeContextMenu(props) {
               text="Seleccionar"
             />
           )}
-        </MenuItem>
+        </MenuItem>*/}
         {/*<MenuItem onClick={(e) => props.callbacks.isolate(props.entity)}>
         Aislar
       </MenuItem>*/}

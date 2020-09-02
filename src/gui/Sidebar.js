@@ -1,4 +1,5 @@
 import React from "react";
+import ReactDOMServer from "react-dom/server";
 import PropTypes from "prop-types";
 import { makeStyles } from "@material-ui/core/styles";
 import clsx from "clsx";
@@ -12,9 +13,12 @@ import PropertiesContainer from "./PropertiesContainer";
 import SidebarOptions from "./SidebarOptions";
 import Drawer from "@material-ui/core/Drawer";
 import IconButton from "@material-ui/core/IconButton";
-import MenuIcon from "@material-ui/icons/Menu";
 import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
+import ChevronRightIcon from "@material-ui/icons/ChevronRight";
 import Divider from "@material-ui/core/Divider";
+import CloseIcon from "@material-ui/icons/Close";
+import Button from "@material-ui/core/Button";
+import Alert from "../components/Alert";
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -28,7 +32,7 @@ function TabPanel(props) {
       className="sidebar-tabpanel"
       {...other}
     >
-      {value === index && <Box p={3}>{children}</Box>}
+      <Box p={3}>{children}</Box>
     </Typography>
   );
 }
@@ -48,9 +52,6 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.background.paper,
     padding: 0,
     overflow: "hidden",
-  },
-  appbar: {
-    boxShadow: "none",
   },
   placeholder: {
     paddingLeft: "10px",
@@ -91,8 +92,8 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     alignItems: "center",
     padding: theme.spacing(0, 1),
-    width: "100%",
     justifyContent: "flex-end",
+    width: "min-content",
   },
   secondDrawerHeader: {
     display: "flex",
@@ -100,7 +101,18 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(0, 1),
     // necessary for content to be below app bar
     ...theme.mixins.toolbar,
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
+  },
+  drawerTitle: {
+    fontSize: "18px !important",
+    padding: 12,
+  },
+  appbar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    "& div div .MuiTabs-flexContainer": {
+      height: "100%",
+    },
   },
 }));
 
@@ -109,9 +121,11 @@ export default function Sidebar(props) {
   const [value, setValue] = React.useState(0);
   const [entity, setEntity] = React.useState(null);
   const [storeys, setStoreys] = React.useState([]);
-  const [open, setOpen] = React.useState(!responsive);
+  const [open, setOpen] = React.useState(true);
   const [secondDrawerContent, setSecondDrawerContent] = React.useState(null);
+  const [secondDrawerTitle, setSecondDrawerTitle] = React.useState("");
   const [secondDrawerOpen, setSecondDrawerOpen] = React.useState(false);
+  const [secondDrawerOnClose, setSecondDrawerOnClose] = React.useState(null);
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -121,28 +135,70 @@ export default function Sidebar(props) {
     setOpen(false);
   };
 
-  const mountTree = (flag) =>
-    flag ? props.tree.mount() : props.tree.unmount();
-
   const handleChange = (event, newValue) => {
     setValue(newValue);
   };
 
-  React.useEffect(() => {
-    mountTree(!value);
-    if (value === 1) {
-      let newStoreys = [];
-      for (let storeyId of props.tools.getStoreys()) {
-        let data = props.metadata[storeyId];
-        let name = data.attributes.Name || "IfcBuildingStorey";
-        newStoreys.push({
-          id: storeyId,
-          name: name,
-        });
-      }
-      setStoreys(newStoreys);
+  const defaultCloseSecondDrawer = () => {
+    setSecondDrawerOpen(false);
+    props.clearBcf();
+  };
+
+  const onClose = () => {
+    if (Boolean(secondDrawerOnClose)) {
+      const { title, description } = secondDrawerOnClose;
+      // Inject CSS into the DOM
+      const injectButton1 = (
+        <Button className="d-none" variant="contained" color="secondary" />
+      );
+      const injectButton2 = <Button className="d-none" color="inherit" />;
+      const css1 = ReactDOMServer.renderToString(injectButton1);
+      const css2 = ReactDOMServer.renderToString(injectButton2);
+
+      const alert = Alert.alertWarningMixin(
+        title,
+        `${description} ${css1} ${css2}`,
+        { okText: "Cerrar" }
+      );
+
+      alert.fire().then((result) => {
+        if (result.value) {
+          defaultCloseSecondDrawer();
+        }
+      });
+    } else {
+      defaultCloseSecondDrawer();
     }
-  }, [value]);
+  };
+
+  const onMounted = React.useCallback(() => {
+    let newStoreysModels = { ARC: {}, STR: {}, MEP: {} };
+    for (let type of Object.keys(newStoreysModels)) {
+      const storeys = props.tools.getStoreys(type);
+      for (let modelId in storeys) {
+        let newStoreys = [];
+        let thisStoreys = storeys[modelId];
+        for (let storeyId of thisStoreys) {
+          let data = props.metadata[storeyId];
+          if (data) {
+            let name = data.attributes.Name || "IfcBuildingStorey";
+            newStoreys.push({
+              id: storeyId,
+              name: name,
+            });
+          }
+        }
+        newStoreysModels[type][modelId] = newStoreys;
+      }
+    }
+    setStoreys(newStoreysModels);
+  }, [props.metadata, props.tools]);
+
+  React.useEffect(() => {
+    if (!props.loading) {
+      onMounted();
+    }
+  }, [onMounted, props.loading]);
 
   React.useEffect(() => {
     setEntity(props.tree.currentEntity);
@@ -150,15 +206,13 @@ export default function Sidebar(props) {
 
   return (
     <React.Fragment>
-      {responsive ? (
-        <IconButton
-          color="inherit"
-          onClick={handleDrawerOpen}
-          className={clsx(classes.menuButton, open && classes.hide)}
-        >
-          <MenuIcon />
-        </IconButton>
-      ) : null}
+      <IconButton
+        color="inherit"
+        onClick={handleDrawerOpen}
+        className={clsx(classes.menuButton, open && classes.hide)}
+      >
+        <ChevronRightIcon />
+      </IconButton>
 
       <Drawer
         className={classes.drawer}
@@ -170,63 +224,60 @@ export default function Sidebar(props) {
         }}
       >
         <div className={classes.root} onClick={() => props.onClick()}>
-          <AppBar position="static" className={classes.appbar}>
+          <AppBar className={classes.appbar} position="static" elevation={0}>
             <Tabs
-              variant={responsive ? "" : "fullWidth"}
+              style={{ width: "100%" }}
+              variant="fullWidth"
               value={value}
               onChange={handleChange}
             >
               <Tab label="Navegación" />
               <Tab label="Herramientas" />
-              {responsive ? (
-                <div className={classes.drawerHeader}>
-                  <IconButton
-                    className={classes.closeButton}
-                    onClick={handleDrawerClose}
-                  >
-                    <ChevronLeftIcon />
-                  </IconButton>
-                </div>
-              ) : null}
             </Tabs>
+            <div className={classes.drawerHeader}>
+              <IconButton
+                className={classes.closeButton}
+                onClick={handleDrawerClose}
+              >
+                <ChevronLeftIcon />
+              </IconButton>
+            </div>
           </AppBar>
           <TabPanel value={value} index={0}>
-            <div id="tree-container">
-              <div
-                className={classes.placeholder}
-                style={{
-                  display: props.loading ? "block" : "none",
-                }}
-              >
-                <Skeleton className="skeleton-tree" />
-                <Skeleton className="skeleton-tree" />
-                <Skeleton className="skeleton-tree" />
-                <Skeleton className="skeleton-tree" />
-              </div>
+            <div
+              className={classes.placeholder}
+              style={{
+                display: props.loading ? "block" : "none",
+              }}
+            >
+              <Skeleton className="skeleton-tree" />
+              <Skeleton className="skeleton-tree" />
+              <Skeleton className="skeleton-tree" />
+              <Skeleton className="skeleton-tree" />
             </div>
+            <div
+              id="tree-container"
+              style={{
+                display: props.loading ? "none" : "block",
+              }}
+            />
             <PropertiesContainer entity={entity} metadata={props.metadata} />
           </TabPanel>
           <TabPanel value={value} index={1}>
             <div style={{ height: "calc(100vh - 48px)", overflowY: "auto" }}>
               <SidebarOptions
+                project={props.project}
                 storeys={storeys}
-                setStorey={props.tools.setStorey}
-                setProjection={props.tools.setProjection}
-                setCameraMode={props.tools.setCameraMode}
-                toggleFirstPerson={props.tools.setFirstPerson}
-                createSectionPlane={props.tools.createSectionPlane}
-                fitModel={props.tools.fitModel}
-                measureDistance={props.tools.measureDistance}
-                createAnnotations={props.tools.createAnnotations}
-                destroyAnnotation={props.tools.destroyAnnotation}
-                saveAnnotation={props.tools.saveAnnotation}
-                toggleAnnotation={props.tools.toggleAnnotation}
-                takeSnapshot={props.tools.takeSnapshot}
-                downloadExcel={props.tools.downloadExcel}
+                tools={props.tools}
+                isBcfLoaded={props.isBcfLoaded}
+                clearBcf={props.clearBcf}
                 secondDrawer={{
                   setContent: setSecondDrawerContent,
                   setOpen: setSecondDrawerOpen,
+                  setTitle: setSecondDrawerTitle,
+                  setOnClose: setSecondDrawerOnClose,
                 }}
+                bcf={props.bcf}
                 annotations={props.annotations}
               />
             </div>
@@ -242,8 +293,13 @@ export default function Sidebar(props) {
         anchor="left"
       >
         <div className={classes.secondDrawerHeader}>
-          <IconButton onClick={() => setSecondDrawerOpen(false)}>
-            <ChevronLeftIcon />
+          <Typography className={classes.drawerTitle} noWrap>
+            {secondDrawerTitle}
+          </Typography>
+          <IconButton
+            onClick={onClose}
+          >
+            <CloseIcon />
           </IconButton>
         </div>
         <Divider />

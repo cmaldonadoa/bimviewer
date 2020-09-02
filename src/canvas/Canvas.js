@@ -1,4 +1,5 @@
 import React from "react";
+import { v4 as uuidv4 } from "uuid";
 import { Viewer } from "@xeokit/xeokit-sdk/src/viewer/Viewer";
 import { GLTFLoaderPlugin } from "@xeokit/xeokit-sdk/src/plugins/GLTFLoaderPlugin/GLTFLoaderPlugin.js";
 import { NavCubePlugin } from "@xeokit/xeokit-sdk/src/plugins/NavCubePlugin/NavCubePlugin.js";
@@ -8,25 +9,27 @@ import { math } from "@xeokit/xeokit-sdk/src/viewer/scene/math/math.js";
 import { SectionPlanesPlugin } from "@xeokit/xeokit-sdk/src/plugins/SectionPlanesPlugin/SectionPlanesPlugin.js";
 import { DistanceMeasurementsPlugin } from "@xeokit/xeokit-sdk/src/plugins/DistanceMeasurementsPlugin/DistanceMeasurementsPlugin.js";
 import { AnnotationsPlugin } from "@xeokit/xeokit-sdk/src/plugins/AnnotationsPlugin/AnnotationsPlugin.js";
+import { BCFViewpointsPlugin } from "@xeokit/xeokit-sdk/src/plugins/BCFViewpointsPlugin/BCFViewpointsPlugin.js";
 
 export default class Canvas extends React.Component {
   constructor(props) {
     super(props);
     this.mounted = false;
-    this.loading = true;
-    this.modelName = props.modelName;
-    this.modelPath = props.modelPath;
+    this.loading = 1;
+    this.projectName = props.projectName;
+    this.bcf = [];
+    this.zoomRatio = 0.2;
 
-    /* Mouse click action */
+    /* Mouse left click action */
     this.mouseCreatePlanes = false;
     this.mouseMeasureDistance = false;
     this.mouseCreateAnnotations = false;
+    this.measureClicks = 0; // Counter to disable measure distance creation
+    this.planesCounter = 0;
+    this.annotationsCount = 0;
+    this.glyphsCount = 1;
 
-    /* Store user changes */
-    this.visible = props.allIds;
-    this.xrayed = [];
-    this.selected = [];
-    this.planes = [];
+    this.modelTracker = null;
 
     /* GUI functions */
     this.updateEntity = props.updateEntity;
@@ -35,8 +38,11 @@ export default class Canvas extends React.Component {
     this.openCanvasContextMenu = props.openCanvasContextMenu;
     this.closeCanvasContextMenu = props.closeCanvasContextMenu;
     this.signalMount = props.signalMount;
+  }
 
-    this.build();
+  setModelTracker(modelTracker) {
+    this.modelTracker = modelTracker;
+    this.loading = this.modelTracker.countModels();
   }
 
   build() {
@@ -56,17 +62,30 @@ export default class Canvas extends React.Component {
     cameraControl.panRightClick = false;
     cameraControl.doublePickFlyTo = true;
     cameraControl.panInertia = 0;
+    cameraControl.navMode = "orbit";
+    cameraControl.pivoting = true;
+    cameraControl.followPointer = true;
+
+    const pivotElement = document
+      .createRange()
+      .createContextualFragment("<div class='camera-pivot-marker'></div>")
+      .firstChild;
+    document.body.appendChild(pivotElement);
+    cameraControl.pivotElement = pivotElement;
+    const aabb = scene.getAABB(scene.visibleObjectIds);
+    cameraControl.pivotPos = math.getAABB3Center(aabb, math.vec3());
+
     cameraFlight.duration = 1.0;
-    cameraFlight.fitFOV = 25;
+    cameraFlight.fitFOV = 45;
 
     camera.eye = [-2.56, 8.38, 8.27];
     camera.look = [13.44, 3.31, -14.83];
     camera.up = [0.1, 0.98, -0.14];
 
-    scene.xrayMaterial.fillAlpha = 0.06;
-    scene.xrayMaterial.fillColor = [0, 0, 0];
+    scene.xrayMaterial.fillAlpha = 0.2;
+    scene.xrayMaterial.fillColor = [0.25, 0.25, 0.25];
     scene.xrayMaterial.edgeAlpha = 1;
-    scene.xrayMaterial.edgeColor = [0.7, 0.7, 0.7];
+    scene.xrayMaterial.edgeColor = [0.13, 0.13, 0.13];
 
     scene.highlightMaterial.fillAlpha = 0.2;
     scene.highlightMaterial.fillColor = [1, 1, 1];
@@ -77,18 +96,37 @@ export default class Canvas extends React.Component {
     scene.selectedMaterial.fillColor = [0, 1, 1];
 
     //------------------------------------------------------------------------------------------------------------------
-    // Load model
+    // Load models
     //------------------------------------------------------------------------------------------------------------------
     const gltfLoader = new GLTFLoaderPlugin(viewer);
 
-    const model = gltfLoader.load({
-      id: "model",
-      src: this.modelPath + this.modelName + ".gltf",
-      metaModelSrc: this.modelPath + this.modelName + "_xeokit.json",
-      edges: true,
+    this.modelTracker.allModels().forEach((data) => {
+      let model = gltfLoader.load({
+        id: data.id,
+        src: data.modelURL,
+        metaModelSrc: data.metadataURL,
+        edges: true,
+      });
+      model.on("loaded", () => {
+        var center = math.vec3();
+        var aabb = scene.getAABB(scene.visibleObjectIds);
+        var diag = math.getAABB3Diag(aabb);
+        math.getAABB3Center(aabb, center);
+        var dist = Math.abs(diag / Math.tan(55.0 / 2));
+        var dir = [1, -1, -1];
+        cameraControl.pivotPos = center;
+        cameraFlight.flyTo({
+          look: center,
+          eye: [
+            center[0] - dist * dir[0],
+            center[1] - dist * dir[1],
+            center[2] - dist * dir[2],
+          ],
+          up: [0, 1, 0],
+          orthoScale: diag * 1.3,
+        });
+      });
     });
-
-    window.model = model;
 
     //------------------------------------------------------------------------------------------------------------------
     // Handle zoom with left click
@@ -98,15 +136,16 @@ export default class Canvas extends React.Component {
       "mousedown",
       (coords) => {
         if (this.mouseZoom) {
+          let zoomRatio = this.zoomRatio;
           if (scene.input.mouseDownLeft) {
             window.document.getElementById("canvas").style.cursor = "zoom-in";
             timeout = setInterval(function () {
-              camera.zoom(-0.2);
+              camera.zoom(-1 * zoomRatio);
             }, 0);
           } else if (scene.input.mouseDownRight) {
             window.document.getElementById("canvas").style.cursor = "zoom-out";
             timeout = setInterval(function () {
-              camera.zoom(0.2);
+              camera.zoom(zoomRatio);
             }, 0);
           }
         } else if (!this.mousePan) {
@@ -144,19 +183,20 @@ export default class Canvas extends React.Component {
       rightMargin: 0,
       color: "#ffffff",
       cameraFlyDuration: 0.7,
+      fitVisible: true,
     });
 
     //------------------------------------------------------------------------------------------------------------------
     // Add StoreyViewsPlugin
     //------------------------------------------------------------------------------------------------------------------
+    const bcfViewpoints = new BCFViewpointsPlugin(viewer);
+
+    this.bcfViewpoints = bcfViewpoints;
+
+    //------------------------------------------------------------------------------------------------------------------
+    // Add StoreyViewsPlugin
+    //------------------------------------------------------------------------------------------------------------------
     const storeyViewsPlugin = new StoreyViewsPlugin(viewer);
-    storeyViewsPlugin.on(
-      "storeys",
-      () => {
-        this.storeys = storeyViewsPlugin.storeys;
-      },
-      this
-    );
 
     this.storeyViewsPlugin = storeyViewsPlugin;
 
@@ -194,34 +234,28 @@ export default class Canvas extends React.Component {
       "mousedown",
       (coords) => {
         if (scene.input.mouseDownRight && !this.mouseZoom) {
-          var hit = scene.pick({
-            canvasPos: coords,
+          let x = coords[0];
+          let y = coords[1];
+
+          let visible = this.modelTracker.getVisible();
+          let xrayed = this.modelTracker.getXRayed();
+          let selected = this.modelTracker.getSelected();
+
+          let selectionVisible = visible.filter((x) => selected.includes(x));
+          let selectionXRayed = xrayed.filter((x) => selected.includes(x));
+
+          this.closeTreeContextMenu();
+          this.openCanvasContextMenu(x, y, {
+            visible: selectionVisible.length > selected.length / 2,
+            xrayed: selectionXRayed.length > selected.length / 2,
           });
-
-          if (hit) {
-            var entity = hit.entity;
-            var objectId = entity.id;
-            this.selected = [objectId];
-
-            scene.setObjectsSelected(scene.objectIds, false);
-            scene.setObjectsSelected(this.selected, true);
-
-            let x = coords[0];
-            let y = coords[1];
-
-            this.openCanvasContextMenu(x, y, entity, {
-              visible: this.visible.includes(objectId),
-              xrayed: this.xrayed.includes(objectId),
-              selected: this.selected.includes(objectId),
-            });
-          }
         }
       },
       this
     );
 
     //------------------------------------------------------------------------------------------------------------------
-    // Click an object to show IFC data and the tree node
+    // Click an object to show IFC data and the tree node, highlight it and set pivot
     //------------------------------------------------------------------------------------------------------------------
     cameraControl.on(
       "picked",
@@ -234,30 +268,35 @@ export default class Canvas extends React.Component {
         if (hit) {
           var entity = hit.entity;
           var objectId = entity.id;
+          const prevSelected = this.modelTracker.getSelected();
 
           if (scene.input.ctrlDown) {
             if (entity.selected) {
-              let idx = this.selected.indexOf(objectId);
-              this.selected.splice(idx, 1);
+              this.modelTracker.filterSelected((x) => x !== objectId);
             } else {
-              this.selected.push(objectId);
+              this.modelTracker.setSelected(objectId);
             }
           } else {
-            if (entity.selected) {
-              this.selected = [];
-            } else {
-              this.selected = [objectId];
+            this.modelTracker.filterSelected((x) => false);
+            if (!entity.selected) {
+              this.modelTracker.setSelected(objectId);
+              if (this.mounted) {
+                this.treeView.showNode(objectId);
+                this.updateEntity(objectId);
+                this.closeTreeContextMenu();
+              }
             }
           }
 
-          scene.setObjectsSelected(scene.objectIds, false);
-          scene.setObjectsSelected(this.selected, true);
+          const aabb = scene.getAABB(
+            this.modelTracker.getSelected().length > 0
+              ? this.modelTracker.getSelected()
+              : scene.visibleObjectIds
+          );
+          cameraControl.pivotPos = math.getAABB3Center(aabb, math.vec3());
 
-          if (this.mounted) {
-            this.treeView.showNode(objectId);
-            this.updateEntity(objectId);
-            this.closeTreeContextMenu();
-          }
+          scene.setObjectsSelected(prevSelected, false);
+          scene.setObjectsSelected(this.modelTracker.getSelected(), true);
         }
       },
       this
@@ -273,35 +312,29 @@ export default class Canvas extends React.Component {
     this.sectionPlanes = sectionPlanes;
 
     scene.input.on(
-      "mousedown",
+      "mouseclicked",
       (coords) => {
-        if (scene.input.mouseDownLeft) {
-          var hit = scene.pick({
-            canvasPos: coords,
-            pickSurface: true,
+        var hit = scene.pick({
+          canvasPos: coords,
+          pickSurface: true,
+        });
+
+        if (hit && this.mouseCreatePlanes) {
+          let planeId = `section-plane-${this.planesCounter++}`;
+
+          this.sectionPlanes.createSectionPlane({
+            id: planeId,
+            canvasPos: hit.canvasPos,
+            pos: hit.worldPos,
+            dir: [
+              -hit.worldNormal[0],
+              -hit.worldNormal[1],
+              -hit.worldNormal[2],
+            ],
           });
-          if (hit) {
-            if (hit.entity.isObject && this.mouseCreatePlanes) {
-              let planeId = `section-plane-${this.planes.length}`;
-              this.planes.push(planeId);
 
-              this.sectionPlanes.createSectionPlane({
-                id: planeId,
-                canvasPos: hit.canvasPos,
-                pos: hit.worldPos,
-                dir: [
-                  -hit.worldNormal[0],
-                  -hit.worldNormal[1],
-                  -hit.worldNormal[2],
-                ],
-              });
-
-              this.sectionPlanes.showControl(planeId);
-              this.mouseCreatePlanes = false;
-            } else if (hit.entity.isObject && this.mouseDestroyPlanes) {
-              console.log("");
-            }
-          }
+          this.sectionPlanes.showControl(planeId);
+          this.mouseCreatePlanes = false;
         }
       },
       this
@@ -313,29 +346,55 @@ export default class Canvas extends React.Component {
     const distanceMeasurements = new DistanceMeasurementsPlugin(viewer);
     this.distanceMeasurements = distanceMeasurements;
 
+    scene.input.on(
+      "mouseclicked",
+      (coords) => {
+        var hit = scene.pick({
+          canvasPos: coords,
+          pickSurface: true,
+        });
+
+        if (hit && this.mouseMeasureDistance) {
+          if (++this.measureClicks === 2) {
+            this.measureClicks = 0;
+            this.mouseCreatePlanes = false;
+            var cursor = "default";
+            if (this.mousePan) {
+              cursor = "move";
+            } else if (this.mouseZoom) {
+              cursor = "zoom-in";
+            }
+            // Delay deactivation so it can render the ruler
+            setTimeout(() => {
+              this.distanceMeasurements.control.deactivate();
+              window.document.getElementById("canvas").style.cursor = cursor;
+            }, 50);
+          }
+        }
+      },
+      this
+    );
+
     //------------------------------------------------------------------------------------------------------------------
     // Create annotations on click
     //------------------------------------------------------------------------------------------------------------------
     const annotations = new AnnotationsPlugin(viewer, {
-      // Default HTML template for marker position
       markerHTML: "<div class='annotation-marker'>{{glyph}}</div>",
-
-      // Default HTML template for label
       labelHTML:
         "<div class='annotation-label'>" +
         "<div class='annotation-title'>{{title}}</div>" +
         "<div class='annotation-desc'>{{description}}</div></div>",
-
-      // Default values to insert into the marker and label templates
       values: {
         glyph: "X",
         title: "Sin título",
         description: "Sin descripción",
       },
     });
-    this.annotations = annotations;
+    annotations.on("markerClicked", (annotation) => {
+      window.viewer.cameraFlight.flyTo(annotation.entity);
+    });
 
-    this.annotationsCount = 1;
+    this.annotations = annotations;
     scene.input.on(
       "mouseclicked",
       (coords) => {
@@ -345,63 +404,153 @@ export default class Canvas extends React.Component {
         });
 
         if (hit && this.mouseCreateAnnotations) {
-          const id = "annotation-" + this.annotationsCount;
-          const title = "Sin título " + this.annotationsCount;
+          const id = "annotation-" + this.annotationsCount++;
+          const title = "Sin título";
           const desc = "Sin descripción";
-          this.annotations.createAnnotation({
+          const annotation = this.annotations.createAnnotation({
             id: id,
             pickResult: hit,
-            occludable: true,
+            occludable: false,
             labelShown: true,
             values: {
-              // HTML template values
-              glyph: this.annotationsCount,
+              glyph: this.glyphsCount++,
               title: title,
               description: desc,
             },
           });
 
-          this.annotationsCount++;
           this.mouseCreateAnnotations = false;
-          this.props.signalNewAnnotation({
+          const annotationObj = {
+            guid: uuidv4(),
             id: id,
-            name: title,
-            description: desc,
-          });
+            name: "",
+            description: "",
+            worldPos: annotation.worldPos,
+            entity: annotation.entity.id,
+          };
+          this.props.signalNewAnnotation(annotationObj);
+        }
+      },
+      this
+    );
+
+    scene.input.on(
+      "keydown",
+      (keyCode) => {
+        if (keyCode === scene.input.KEY_ESCAPE) {
+          // Disable current measurement
+          this.measureClicks = 0;
+          this.mouseCreatePlanes = false;
+          var cursor = "default";
+          if (this.mousePan) {
+            cursor = "move";
+          } else if (this.mouseZoom) {
+            cursor = "zoom-in";
+          }
+          this.distanceMeasurements.control.deactivate();
+          window.document.getElementById("canvas").style.cursor = cursor;
+
+          // Cancel selection
+          this.modelTracker.filterSelected((x) => false);
+          scene.setObjectsSelected(scene.objectIds, false);
         }
       },
       this
     );
 
     window.viewer = viewer;
+    this.mountTree();
+  }
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Return an array containing the current annotations
+  //------------------------------------------------------------------------------------------------------------------
+  getAnnotations() {
+    const annotations = this.annotations.annotations;
+    var array = [];
+    for (let annotationId in annotations) {
+      let annotation = annotations[annotationId];
+      let data = {
+        title: annotation.getField("title"),
+        description: annotation.getField("description"),
+        worldPos: annotation.worldPos,
+        entity: annotation.entity.id,
+      };
+      array.push(data);
+    }
+    return array;
+  }
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Load previously saved annotations
+  //------------------------------------------------------------------------------------------------------------------
+  loadAnnotations(annotations) {
+    const scene = window.viewer.scene;
+    var cache = [];
+    for (let annotation of annotations) {
+      const wp = annotation.worldPos;
+      const id = "annotation-" + this.annotationsCount++;
+      const title = annotation.name;
+      const desc = annotation.description;
+      this.annotations.createAnnotation({
+        id: id,
+        entity: scene.objects[annotation.entity],
+        worldPos: [wp["0"], wp["1"], wp["2"]],
+        occludable: false,
+        labelShown: true,
+        values: {
+          // HTML template values
+          glyph: this.glyphsCount++,
+          title: title,
+          description: desc,
+        },
+      });
+
+      const annotationObj = {
+        guid: annotation.guid,
+        id: id,
+        name: title,
+        description: desc,
+        worldPos: [wp["0"], wp["1"], wp["2"]],
+        entity: annotation.entity,
+        responsible: annotation.responsible,
+        specialty: annotation.specialty,
+        date: annotation.date,
+        canvasPos: annotation.canvasPos,
+        replies: annotation.replies,
+      };
+      this.props.signalNewAnnotation(annotationObj);
+      cache.push(annotationObj);
+    }
+    return cache;
   }
 
   mountTree() {
-    let treeExists = Boolean(this.treeView);
+    const viewer = window.viewer;
+    const scene = viewer.scene;
+
     //------------------------------------------------------------------------------------------------------------------
     // Create an IFC structure tree view
     //------------------------------------------------------------------------------------------------------------------
     this.treeView = new TreeViewPlugin(window.viewer, {
       containerElement: document.getElementById("tree-container"),
-      autoExpandDepth: 0, // Initially expand tree three nodes deep
+      autoExpandDepth: 0,
       autoAddModels: false,
     });
-    if (treeExists) {
-      this.treeView.addModel("model");
-      this.signalMount();
-    } else {
-      //----------------------------------------------------------------------------------------------------------------------
-      // Load a model and fit it to view
-      //----------------------------------------------------------------------------------------------------------------------
-      window.model.on("loaded", () => {
-        this.treeView.addModel(window.model.id);
-        this.loading = false;
-        this.signalMount();
-      });
-    }
 
-    const viewer = window.viewer;
-    const scene = viewer.scene;
+    //----------------------------------------------------------------------------------------------------------------------
+    // Load models on tree
+    //----------------------------------------------------------------------------------------------------------------------
+    scene.modelIds.forEach((modelId) => {
+      const model = scene.models[modelId];
+      model.on("loaded", () => {
+        this.treeView.addModel(model.id);
+        --this.loading;
+        if (!this.loading) {
+          this.signalMount();
+        }
+      });
+    });
 
     //----------------------------------------------------------------------------------------------------------------------
     // Right clicking a tree node title will open context menu
@@ -419,9 +568,9 @@ export default class Canvas extends React.Component {
           event.clientY,
           event.currentTarget,
           {
-            visible: this.visible.includes(id),
-            xrayed: this.xrayed.includes(id),
-            selected: this.selected.includes(id),
+            visible: this.modelTracker.isVisible(id),
+            xrayed: this.modelTracker.isXRayed(id),
+            selected: this.modelTracker.isSelected(id),
           }
         );
       },
@@ -451,10 +600,12 @@ export default class Canvas extends React.Component {
           this.updateEntity(objectIds[0]);
         }
 
+        const xrayed = this.modelTracker.getXRayed();
+
         setTimeout(() => {
           scene.setObjectsXRayed(scene.objectIds, false);
-          if (this.xrayed.length > 0) {
-            scene.setObjectsXRayed(this.xrayed, true);
+          if (xrayed.length > 0) {
+            scene.setObjectsXRayed(xrayed, true);
           }
         }, 800);
       },
@@ -471,98 +622,124 @@ export default class Canvas extends React.Component {
   //----------------------------------------------------------------------------------------------------------------------
   // Context menu handlers
   //----------------------------------------------------------------------------------------------------------------------
-  toggleVisibility(node, searchNodes) {
+  toggleVisibility(nodes, searchNodes) {
+    nodes = Array.isArray(nodes) ? nodes : [nodes];
     const viewer = window.viewer;
     const scene = viewer.scene;
-    var objectIds = [];
-    var nodeId = 0;
+    var objectIds = searchNodes ? [] : nodes;
 
     if (searchNodes) {
-      nodeId = node.objectId;
-      this.treeView.withNodeTree(node, (treeViewNode) => {
-        if (treeViewNode.objectId) {
-          objectIds.push(treeViewNode.objectId);
-        }
-      });
-    } else {
-      nodeId = node.id;
-      objectIds.push(node.id);
+      for (let node of nodes) {
+        this.treeView.withNodeTree(node, (treeViewNode) => {
+          if (treeViewNode.objectId) {
+            objectIds.push(treeViewNode.objectId);
+          }
+        });
+      }
     }
 
-    if (this.visible.includes(nodeId)) {
+    const visible = this.modelTracker.getVisible();
+    const countVisible = [...visible.filter((x) => objectIds.includes(x))]
+      .length;
+
+    if (countVisible > objectIds.length / 2) {
       scene.setObjectsVisible(objectIds, false);
-      this.visible = this.visible.filter((x) => !objectIds.includes(x));
+      this.modelTracker.filterVisible((x) => !objectIds.includes(x));
     } else {
       scene.setObjectsVisible(objectIds, true);
-      this.visible = [...new Set([...this.visible, ...objectIds])];
+      this.modelTracker.setVisible(objectIds, true);
     }
   }
 
-  toggleXray(node, searchNodes) {
+  toggleXray(nodes, searchNodes) {
+    nodes = Array.isArray(nodes) ? nodes : [nodes];
     const viewer = window.viewer;
     const scene = viewer.scene;
-    var objectIds = [];
-    var nodeId = 0;
+    var objectIds = searchNodes ? [] : nodes;
 
     if (searchNodes) {
-      nodeId = node.objectId;
-      this.treeView.withNodeTree(node, (treeViewNode) => {
-        if (treeViewNode.objectId) {
-          objectIds.push(treeViewNode.objectId);
-        }
-      });
-    } else {
-      nodeId = node.id;
-      objectIds.push(node.id);
+      for (let node of nodes) {
+        this.treeView.withNodeTree(node, (treeViewNode) => {
+          if (treeViewNode.objectId) {
+            objectIds.push(treeViewNode.objectId);
+          }
+        });
+      }
     }
 
-    if (this.xrayed.includes(nodeId)) {
+    const xrayed = this.modelTracker.getXRayed();
+    const countXrayed = [...xrayed.filter((x) => objectIds.includes(x))].length;
+
+    if (countXrayed > objectIds.length / 2) {
       scene.setObjectsXRayed(objectIds, false);
-      this.xrayed = this.xrayed.filter((x) => !objectIds.includes(x));
+      this.modelTracker.filterXRayed((x) => !objectIds.includes(x));
     } else {
       scene.setObjectsXRayed(objectIds, true);
-      this.xrayed = [...new Set([...this.xrayed, ...objectIds])];
+      this.modelTracker.setXRayed(objectIds, true);
     }
   }
 
-  toggleSelect(node, searchNodes) {
+  toggleSelect(nodes, searchNodes) {
+    nodes = Array.isArray(nodes) ? nodes : [nodes];
     const viewer = window.viewer;
     const scene = viewer.scene;
-    var objectIds = [];
-    var nodeId = 0;
+    var objectIds = searchNodes ? [] : nodes;
 
     if (searchNodes) {
-      nodeId = node.objectId;
-      this.treeView.withNodeTree(node, (treeViewNode) => {
-        if (treeViewNode.objectId) {
-          objectIds.push(treeViewNode.objectId);
-        }
-      });
-    } else {
-      nodeId = node.id;
-      objectIds.push(node.id);
+      for (let node of nodes) {
+        this.treeView.withNodeTree(node, (treeViewNode) => {
+          if (treeViewNode.objectId) {
+            objectIds.push(treeViewNode.objectId);
+          }
+        });
+      }
     }
 
-    if (this.selected.includes(nodeId)) {
+    const selected = this.modelTracker.getSelected();
+    const countSelected = [...selected.filter((x) => objectIds.includes(x))]
+      .length;
+
+    if (countSelected > objectIds.length / 2) {
       scene.setObjectsSelected(objectIds, false);
-      this.selected = this.selected.filter((x) => !objectIds.includes(x));
+      this.modelTracker.filterSelected((x) => !objectIds.includes(x));
     } else {
       scene.setObjectsSelected(objectIds, true);
-      this.selected = [...new Set([...this.selected, ...objectIds])];
+      this.modelTracker.setSelected(objectIds, true);
     }
   }
 
   lookAt(id) {
     const viewer = window.viewer;
     const scene = viewer.scene;
-    viewer.cameraFlight.flyTo({
-      aabb: scene.getAABB(id),
-    });
+    if (id) {
+      const aabb = scene.getAABB(id);
+      viewer.cameraFlight.flyTo({
+        aabb: aabb,
+      });
+    } else {
+      const aabb = scene.getAABB(
+        this.modelTracker.getSelected().length > 0
+          ? this.modelTracker.getSelected()
+          : scene.visibleObjectIds
+      );
+      viewer.cameraFlight.flyTo({
+        aabb: aabb,
+      });
+    }
   }
 
   //----------------------------------------------------------------------------------------------------------------------
   // Tools tab handlers
   //----------------------------------------------------------------------------------------------------------------------
+
+  setEdges(state) {
+    const viewer = window.viewer;
+    const scene = viewer.scene;
+    scene.modelIds.forEach((modelId) => {
+      const model = scene.models[modelId];
+      model.edges = state;
+    });
+  }
 
   setProjection(mode) {
     const viewer = window.viewer;
@@ -579,20 +756,35 @@ export default class Canvas extends React.Component {
   fitModel() {
     const viewer = window.viewer;
     const scene = viewer.scene;
+    const aabb = scene.getAABB(scene.visibleObjectIds);
     viewer.cameraFlight.flyTo({
-      aabb: scene.models["model"].aabb,
+      aabb: aabb,
     });
   }
 
-  getStoreys() {
-    var storeys = [];
-    for (let storey in this.storeys) {
-      storeys.push(storey);
+  showAll() {
+    const viewer = window.viewer;
+    const scene = viewer.scene;
+    this.modelTracker.resetVisible();
+    scene.setObjectsVisible(this.modelTracker.getVisible(), true);
+  }
+
+  getStoreys(type) {
+    var storeys = {};
+    const modelStoreys = this.storeyViewsPlugin.modelStoreys;
+    const models = this.modelTracker.getModels(type).map((model) => model.id);
+    for (let modelId of models) {
+      storeys[modelId] = [];
+      let thisStoreys = modelStoreys[modelId];
+      for (let storeyId in thisStoreys) {
+        storeys[modelId].push(storeyId);
+      }
     }
     return storeys;
   }
 
   setStorey(value) {
+    this.sectionPlanes.setOverviewVisible(false);
     const viewer = window.viewer;
 
     const oldChild = document.getElementById("storey-img");
@@ -605,16 +797,12 @@ export default class Canvas extends React.Component {
 
     if (value === "") {
       const cameraControl = viewer.cameraControl;
-      const cameraFlight = viewer.cameraFlight;
       const scene = viewer.scene;
       scene.setObjectsVisible(scene.objectIds, true);
-      cameraControl.navMode = "orbit"; // Disable rotation
-      cameraFlight.flyTo({
-        eye: [-2.56, 8.38, 8.27],
-        look: [13.44, 3.31, -14.83],
-        up: [0.1, 0.98, -0.14],
-        projection: "perspective",
-      });
+      cameraControl.navMode = "orbit";
+      cameraControl.pivoting = true;
+      this.fitModel();
+      this.sectionPlanes.setOverviewVisible(true);
       return;
     }
 
@@ -623,11 +811,12 @@ export default class Canvas extends React.Component {
     });
 
     this.storeyViewsPlugin.gotoStoreyCamera(value, {
-      projection: "ortho", // Orthographic projection
-      duration: 0.8, // 2.5 second transition
+      projection: "ortho",
+      duration: 0.8,
       done: () => {
         // Create 2D view
         viewer.cameraControl.navMode = "planView"; // Disable rotation
+        viewer.cameraControl.pivoting = false;
         const storeyMap = this.storeyViewsPlugin.createStoreyMap(value, {
           width: 300,
           format: "png",
@@ -683,6 +872,7 @@ export default class Canvas extends React.Component {
               duration: 1.5,
               done: () => {
                 viewer.cameraControl.navMode = "planView";
+                viewer.cameraControl.pivoting = false;
               },
             });
           }
@@ -828,18 +1018,21 @@ export default class Canvas extends React.Component {
         this.mouseZoom = false;
         this.mousePan = false;
         cameraControl.navMode = "orbit";
+        cameraControl.pivoting = true;
         break;
       case "pan":
         cameraControl.pointerEnabled = true;
         this.mouseZoom = false;
         this.mousePan = true;
         cameraControl.navMode = "planView";
+        cameraControl.pivoting = false;
         break;
       case "zoom":
         window.document.getElementById("canvas").style.cursor = "zoom-in";
         cameraControl.pointerEnabled = false;
         this.mouseZoom = true;
         this.mousePan = false;
+        cameraControl.pivoting = false;
         break;
       default:
         window.document.getElementById("canvas").style.cursor = "default";
@@ -847,43 +1040,51 @@ export default class Canvas extends React.Component {
         this.mouseZoom = false;
         this.mousePan = false;
         cameraControl.navMode = "orbit";
+        cameraControl.pivoting = true;
         break;
     }
   }
 
   createSectionPlane() {
     this.mouseCreatePlanes = true;
-    /*
-    this.planes.forEach((planeId) =>
-      this.sectionPlanes.destroySectionPlane(planeId)
-    );
-    this.planes = [];*/
+    this.mouseCreateAnnotations = false;
+    this.mouseMeasureDistance = false;
+    this.distanceMeasurements.control.deactivate();
+    window.document.getElementById("canvas").style.cursor = "pointer";
   }
 
   destroySectionPlane() {
-    this.mouseDestroyPlanes = !this.mouseDestroyPlanes;
+    let id = this.sectionPlanes.getShownControl();
+    this.sectionPlanes.destroySectionPlane(id);
   }
 
   measureDistance() {
-    this.mouseMeasureDistance = !this.mouseMeasureDistance;
-    if (this.mouseMeasureDistance) {
-      this.distanceMeasurements.control.activate();
-    } else {
-      this.distanceMeasurements.control.deactivate();
-      this.distanceMeasurements.clear();
-    }
+    this.mouseMeasureDistance = true;
+    this.mouseCreatePlanes = false;
+    this.mouseCreateAnnotations = false;
+    this.distanceMeasurements.control.activate();
+  }
+
+  destroyMeasurements() {
+    this.distanceMeasurements.clear();
   }
 
   createAnnotations() {
     this.mouseCreateAnnotations = true;
-    /*
-    if (!this.mouseCreateAnnotations) {
-      this.annotations.clear();
-    }*/
+    this.mouseMeasureDistance = false;
+    this.mouseCreatePlanes = false;
+    this.distanceMeasurements.control.deactivate();
+    window.document.getElementById("canvas").style.cursor = "pointer";
   }
 
   destroyAnnotation(id) {
     this.annotations.destroyAnnotation(id);
+    var glyphsCount = 1;
+    Object.keys(this.annotations.annotations).forEach((annotationId) => {
+      let annotation = this.annotations.annotations[annotationId];
+      annotation.setField("glyph", glyphsCount++);
+    });
+    this.glyphsCount = glyphsCount;
   }
 
   updateAnnotation(id, name, description) {
@@ -900,11 +1101,85 @@ export default class Canvas extends React.Component {
     this.annotations.annotations[id].setMarkerShown(!marker);
   }
 
-  takeSnapshot() {
-    const img = window.viewer.getSnapshot();
-    var a = document.createElement("a");
-    a.href = img;
-    a.download = `${this.modelName}.png`;
-    a.click();
+  takeSnapshot(onSuccess, onError) {
+    try {
+      const img = window.viewer.getSnapshot();
+      var a = document.createElement("a");
+      a.href = img;
+      a.download = `${this.projectName}.png`;
+      a.click();
+      onSuccess();
+    } catch (error) {
+      console.error(error);
+      onError();
+    }
+  }
+
+  createBcf(annotations) {
+    const viewpoint = this.bcfViewpoints.getViewpoint({
+      spacesVisible: true,
+      spaceBoundariesVisible: false,
+      openingsVisible: true,
+    });
+
+    const comments = annotations.map((annotation) => {
+      return {
+        guid: annotation.guid,
+        date: annotation.date.toISOString(),
+        author: annotation.responsible,
+        comment: annotation.name + " - " + annotation.description,
+      };
+    });
+    viewpoint.comments = comments;
+    return viewpoint;
+  }
+
+  loadBcf(data) {
+    this.clearAnnotations();
+    this.loadAnnotations(
+      data.annotations.filter((x) => Boolean(x))
+    );
+
+    const bcf = data.bcf;
+    const selected = bcf.components.selection.map(
+      (element) => element.ifc_guid
+    );
+    const invisibles = bcf.components.visibility.exceptions.map(
+      (element) => element.ifc_guid
+    );
+    this.modelTracker.filterVisible((x) => !invisibles.includes(x));
+    this.modelTracker.setSelected(selected);
+    this.bcfViewpoints.setViewpoint(bcf, {
+      rayCast: true,
+      defaultInvisible: true,
+    });
+  }
+
+  clearAnnotations() {
+    this.annotations.clear();
+    this.glyphsCount = 1;
+  }
+
+  setZoomRatio(value) {
+    this.zoomRatio = value;
+  }
+
+  flyToAnnotation(id) {
+    const annotation = this.annotations.annotations[id];
+    window.viewer.cameraFlight.flyTo(annotation.entity);
+  }
+
+  getAnnotationsCanvasPosition(annotations) {
+    const finalAnnotations = [];
+    annotations.forEach((annotation) => {
+      const canvasAnnotation = this.annotations.annotations[annotation.id];
+      const finalAnnotation = {
+        ...annotation,
+        canvasPos: canvasAnnotation.canvasPos,
+        replies: [],
+      };
+      finalAnnotations.push(finalAnnotation);
+    });
+    return finalAnnotations;
   }
 }

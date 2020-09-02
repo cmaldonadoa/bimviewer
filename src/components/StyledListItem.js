@@ -12,13 +12,28 @@ import FormControl from "@material-ui/core/FormControl";
 import Collapse from "@material-ui/core/Collapse";
 import ExpandLess from "@material-ui/icons/ExpandLess";
 import ExpandMore from "@material-ui/icons/ExpandMore";
+import Slider from "@material-ui/core/Slider";
 import { makeStyles } from "@material-ui/core/styles";
 import Typography from "@material-ui/core/Typography";
 
 const useStyles = makeStyles((theme) => ({
+  noPaddingY: {
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+  toggleButtonGroup: {
+    minWidth: 220,
+    maxWidth: 220,
+  },
+  toggleButton: {
+    width: ({ btnWidth }) => `${btnWidth}%`,
+  },
   formControl: {
     margin: theme.spacing(1),
     minWidth: 220,
+    maxWidth: 220,
+    marginBottom: 6,
+    marginTop: 6,
   },
   icon: {
     minWidth: "40px",
@@ -47,6 +62,10 @@ const StyledListItemToggleButton = (props) => {
   const onChange = props.onChange;
   const value = props.value;
   const options = props.options;
+  const exclusive = props.exclusive;
+  let n = options.length;
+  let btnWidth = 100 / n;
+  const classes = useStyles({ btnWidth });
 
   return (
     <ListItem>
@@ -55,11 +74,13 @@ const StyledListItemToggleButton = (props) => {
         <ToggleButtonGroup
           size="small"
           value={value}
-          exclusive
+          exclusive={exclusive}
           onChange={onChange}
+          className={classes.toggleButtonGroup}
         >
           {options.map((option) => (
             <ToggleButton
+              className={classes.toggleButton}
               key={option.value}
               value={option.value}
             >
@@ -91,9 +112,10 @@ const StyledListItemSelect = (props) => {
   const onChange = props.onChange;
   const value = props.value;
   const options = props.options;
+  const className = props.className;
 
   return (
-    <ListItem>
+    <ListItem className={`${classes.noPaddingY} ${className}`}>
       <ListItemText primary={label} />
       <FormControl className={classes.formControl}>
         <Select value={value} displayEmpty onChange={onChange}>
@@ -115,10 +137,11 @@ const StyledListItemAccordion = (props) => {
   const label = props.label;
   const onClick = props.onClick;
   const open = props.open;
+  const className = props.className;
 
   return (
     <React.Fragment>
-      <ListItem button onClick={onClick}>
+      <ListItem button className={className} onClick={onClick}>
         <ListItemText primary={label} />
         {open ? <ExpandLess /> : <ExpandMore />}
       </ListItem>
@@ -131,10 +154,37 @@ const StyledListItemAccordion = (props) => {
   );
 };
 
+const StyledListItemSlider = (props) => {
+  const classes = useStyles();
+  const label = props.label;
+  const onChange = props.onChange;
+  const value = props.value;
+  const className = props.className;
+  const min = props.min;
+  const max = props.max;
+  const step = props.step;
+
+  return (
+    <ListItem className={`${classes.noPaddingY} ${className}`}>
+      <ListItemText primary={label} />
+      <FormControl className={classes.formControl}>
+        <Slider
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={onChange}
+        />
+      </FormControl>
+    </ListItem>
+  );
+};
+
 export {
   StyledListItemButton,
   StyledListItemToggleButton,
   StyledListItemSwitch,
   StyledListItemSelect,
   StyledListItemAccordion,
+  StyledListItemSlider,
 };
