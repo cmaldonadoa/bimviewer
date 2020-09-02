@@ -75,7 +75,12 @@ export default function ModelUploaderHome() {
               />
             </Grid>
             <Grid item xs={12}>
-              <Button variant="contained" color="primary" onClick={signIn}>
+              <Button
+                disabled={!username || !password}
+                variant="contained"
+                color="primary"
+                onClick={signIn}
+              >
                 Entrar
               </Button>
             </Grid>
