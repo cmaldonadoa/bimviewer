@@ -136,7 +136,7 @@ div.sidebar-tabpanel > * {
 /* Tree */
 #tree-container {
   width: 100%;
-  height: calc(50% - 48px);
+  height: calc(50% - 58px);
   position: absolute;
   left: 0;
   overflow-y: auto;
@@ -268,7 +268,7 @@ div.sidebar-tabpanel > * {
 /* Context menu*/
 #tree-context-menu div[class^="Mui"] {
   top: 0 !important;
-  left: -var(--sidebar-width) !important;
+  left: 0 !important;
   pointer-events: visible !important;
 }
 
@@ -349,7 +349,7 @@ div.sidebar-tabpanel > * {
   left: 0;
   box-shadow: none;
   overflow: auto;
-  height: calc(100% - 48px);
+  height: calc(100% - 58px);
 }
 
 #properties-table > table {
@@ -458,6 +458,7 @@ button[id^="properties-tab-"] {
 /* ----------------------------------------------------------------------------------------------------------*/
 div[class^="viewer-ruler-"] {
   position: fixed !important;
+  z-index: 0 !important;
 }
 
 /* ----------------------------------------------------------------------------------------------------------*/
