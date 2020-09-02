@@ -1,4 +1,5 @@
 import React from "react";
+import ReactDOMServer from "react-dom/server";
 import PropTypes from "prop-types";
 import { makeStyles } from "@material-ui/core/styles";
 import clsx from "clsx";
@@ -16,6 +17,8 @@ import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
 import ChevronRightIcon from "@material-ui/icons/ChevronRight";
 import Divider from "@material-ui/core/Divider";
 import CloseIcon from "@material-ui/icons/Close";
+import Button from "@material-ui/core/Button";
+import Alert from "../components/Alert";
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -122,6 +125,7 @@ export default function Sidebar(props) {
   const [secondDrawerContent, setSecondDrawerContent] = React.useState(null);
   const [secondDrawerTitle, setSecondDrawerTitle] = React.useState("");
   const [secondDrawerOpen, setSecondDrawerOpen] = React.useState(false);
+  const [secondDrawerOnClose, setSecondDrawerOnClose] = React.useState(null);
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -133,6 +137,38 @@ export default function Sidebar(props) {
 
   const handleChange = (event, newValue) => {
     setValue(newValue);
+  };
+
+  const defaultCloseSecondDrawer = () => {
+    setSecondDrawerOpen(false);
+    props.clearBcf();
+  };
+
+  const onClose = () => {
+    if (Boolean(secondDrawerOnClose)) {
+      const { title, description } = secondDrawerOnClose;
+      // Inject CSS into the DOM
+      const injectButton1 = (
+        <Button className="d-none" variant="contained" color="secondary" />
+      );
+      const injectButton2 = <Button className="d-none" color="inherit" />;
+      const css1 = ReactDOMServer.renderToString(injectButton1);
+      const css2 = ReactDOMServer.renderToString(injectButton2);
+
+      const alert = Alert.alertWarningMixin(
+        title,
+        `${description} ${css1} ${css2}`,
+        { okText: "Cerrar" }
+      );
+
+      alert.fire().then((result) => {
+        if (result.value) {
+          defaultCloseSecondDrawer();
+        }
+      });
+    } else {
+      defaultCloseSecondDrawer();
+    }
   };
 
   const onMounted = React.useCallback(() => {
@@ -234,10 +270,12 @@ export default function Sidebar(props) {
                 storeys={storeys}
                 tools={props.tools}
                 isBcfLoaded={props.isBcfLoaded}
+                clearBcf={props.clearBcf}
                 secondDrawer={{
                   setContent: setSecondDrawerContent,
                   setOpen: setSecondDrawerOpen,
                   setTitle: setSecondDrawerTitle,
+                  setOnClose: setSecondDrawerOnClose,
                 }}
                 bcf={props.bcf}
                 annotations={props.annotations}
@@ -259,10 +297,7 @@ export default function Sidebar(props) {
             {secondDrawerTitle}
           </Typography>
           <IconButton
-            onClick={() => {
-              props.clearBcf();
-              setSecondDrawerOpen(false);
-            }}
+            onClick={onClose}
           >
             <CloseIcon />
           </IconButton>
