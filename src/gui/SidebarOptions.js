@@ -58,69 +58,82 @@ const SidebarOptions = (props) => {
   const [openExcelMenu, setOpenExcelMenu] = React.useState(false);
   const [excelModelType, setExcelModelType] = React.useState("ARC");
   const [excelModel, setExcelModel] = React.useState("");
-  const { setOpen, setContent, setTitle } = props.secondDrawer;
+  const [disableSaveAnnotation, setDisableSaveAnnotation] = React.useState(
+    false
+  );
+  const { setOpen, setContent, setTitle, setOnClose } = props.secondDrawer;
   const tools = props.tools;
 
-  const annotationsContent = (
-    <List className={classes.denseList} dense>
-      {props.annotations.filter((x) => Boolean(x)).length === 0 ? (
-        <React.Fragment>
-          <Typography className="p-3">No hay anotaciones.</Typography>
-
-          <Divider />
-        </React.Fragment>
-      ) : (
-        props.annotations.map((annotation, index) =>
-          annotation ? (
-            <Annotation
-              key={annotation.id}
-              onDelete={tools.destroyAnnotation}
-              onSave={tools.saveAnnotation}
-              onCheck={tools.toggleAnnotation}
-              onReply={tools.saveReply}
-              id={index}
-              name={annotation.name}
-              description={annotation.description}
-              responsible={annotation.responsible}
-              specialty={annotation.specialty}
-              date={annotation.date}
-              replies={annotation.replies}
-            />
-          ) : null
-        )
-      )}
-      {props.isBcfLoaded ? null : (
-        <div className="p-3">
-          <Button
-            disableElevation
-            variant="contained"
-            color="primary"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={tools.createAnnotations}
-          >
-            Nueva
-          </Button>
-          <Button
-            disableElevation
-            className="ml-3"
-            variant="contained"
-            color="primary"
-            size="small"
-            startIcon={<SaveIcon />}
-            onClick={tools.saveBcf}
-          >
-            Guardar
-          </Button>
-        </div>
-      )}
-    </List>
+  const annotationsContent = React.useCallback(
+    () => (
+      <List className={classes.denseList} dense>
+        {props.annotations.filter((x) => Boolean(x)).length === 0 ? (
+          <React.Fragment>
+            <Typography className="p-3">No hay anotaciones.</Typography>
+            <Divider />
+          </React.Fragment>
+        ) : (
+          props.annotations.map((annotation, index) =>
+            annotation ? (
+              <Annotation
+                key={annotation.id}
+                onDelete={tools.destroyAnnotation}
+                onSave={tools.saveAnnotation}
+                onCheck={tools.toggleAnnotation}
+                onReply={tools.saveReply}
+                onFly={tools.flyToAnnotation}
+                onEdit={(val) => setDisableSaveAnnotation(val)}
+                id={index}
+                name={annotation.name}
+                description={annotation.description}
+                responsible={annotation.responsible}
+                specialty={annotation.specialty}
+                date={annotation.date}
+                replies={annotation.replies}
+                final={props.isBcfLoaded}
+              />
+            ) : null
+          )
+        )}
+        {props.isBcfLoaded ? null : (
+          <div className="p-3">
+            <Button
+              disableElevation
+              variant="contained"
+              color="primary"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={tools.createAnnotations}
+            >
+              Nueva
+            </Button>
+            <Button
+              disabled={disableSaveAnnotation}
+              disableElevation
+              className="ml-3"
+              variant="contained"
+              color="primary"
+              size="small"
+              startIcon={<SaveIcon />}
+              onClick={() => {
+                tools.saveBcf();
+                setOpen(false);
+                props.clearBcf();
+              }}
+            >
+              Guardar
+            </Button>
+          </div>
+        )}
+      </List>
+    ),
+    [classes.denseList, disableSaveAnnotation, props, setOpen, tools]
   );
 
   React.useEffect(() => {
-    setTitle("Anotaciones");
-    setContent(annotationsContent);
-  }, [props.annotations]);
+    setTitle((prevTitle) => "Anotaciones");
+    setContent((prevContent) => annotationsContent());
+  }, [props.annotations, setContent, setTitle]);
 
   const handleOpenMeasurements = () => {
     setOpenMeasurements(!openMeasurements);
@@ -185,10 +198,11 @@ const SidebarOptions = (props) => {
     }
   };
 
-  const openDrawer = (title, content) => {
+  const openDrawer = (title, content, onClose) => {
     setOpen(true);
     setTitle(title);
     setContent(content);
+    setOnClose(onClose);
   };
 
   const handleOpenExcelMenu = () => {
@@ -205,7 +219,7 @@ const SidebarOptions = (props) => {
   };
 
   const handleExcelDownload = () => {
-    tools.downloadExcel(excelModel);
+    tools.downloadExcel(excelModelType, excelModel);
     handleOpenExcelMenu();
   };
 
@@ -214,9 +228,15 @@ const SidebarOptions = (props) => {
   };
 
   const handleZoomRatioChange = (event, value) => {
-    setZoomRatio(value)
-    tools.setZoom(value)
-  }
+    setZoomRatio(value);
+    tools.setZoom(value);
+  };
+
+  const getBcfId = (index) => {
+    let num = "" + (index + 1);
+    while (num.length < 4) num = "0" + num;
+    return "OBS-" + num;
+  };
 
   return (
     <div className={classes.root}>
@@ -241,6 +261,17 @@ const SidebarOptions = (props) => {
             },
           ]}
         />
+
+        {control === "zoom" ? (
+          <StyledListItemSlider
+            label="Sensibilidad zoom"
+            value={zoomRatio}
+            onChange={handleZoomRatioChange}
+            min={0}
+            max={0.5}
+            step={0.01}
+          />
+        ) : null}
 
         <StyledListItemToggleButton
           label={"Vista"}
@@ -269,15 +300,6 @@ const SidebarOptions = (props) => {
           label="Bordes"
           checked={borderState}
           onChange={handleBorderState}
-        />
-
-        <StyledListItemSlider
-          label="Sensibilidad zoom"
-          value={zoomRatio}
-          onChange={handleZoomRatioChange}
-          min={0}
-          max={0.5}
-          step={0.01}
         />
 
         <Divider />
@@ -387,7 +409,13 @@ const SidebarOptions = (props) => {
           <StyledListItemButton
             icon={<AddCircleIcon />}
             label="Crear"
-            onClick={() => openDrawer("Anotaciones", annotationsContent)}
+            onClick={() =>
+              openDrawer("Anotaciones", annotationsContent(), {
+                title: "Atención",
+                description:
+                  "Al cerrar esta pestaña se perderán las anotaciones que no se hayan guardado.",
+              })
+            }
             className={classes.nested}
           />
           <StyledListItemButton
@@ -402,20 +430,34 @@ const SidebarOptions = (props) => {
                       No hay observaciones.
                     </Typography>
                   ) : (
-                    props.bcf.map((viewpoint, index) =>
-                      viewpoint ? (
-                        <BCF
-                          key={index}
-                          data={viewpoint.bcf}
-                          name={`${props.project}`}
-                          img={viewpoint.bcf.snapshot.snapshot_data}
-                          onDelete={tools.destroyBcf}
-                          onSelect={tools.loadBcf}
-                          onDownload={tools.downloadBcf}
-                          id={index}
-                        />
-                      ) : null
-                    )
+                    <React.Fragment>
+                      <div className="p-3">
+                        <Button
+                          disableElevation
+                          variant="contained"
+                          color="primary"
+                          size="small"
+                          onClick={tools.downloadAllBcf}
+                        >
+                          Descargar todo
+                        </Button>
+                      </div>
+                      {props.bcf.map((viewpoint, index) =>
+                        viewpoint ? (
+                          <BCF
+                            key={index}
+                            data={viewpoint.bcf}
+                            name={`${props.project}`}
+                            img={viewpoint.bcf.snapshot.snapshot_data}
+                            onDelete={tools.destroyBcf}
+                            onSelect={tools.loadBcf}
+                            onDownload={tools.downloadBcf}
+                            index={index}
+                            id={getBcfId(index)}
+                          />
+                        ) : null
+                      )}
+                    </React.Fragment>
                   )}
                 </List>
               )

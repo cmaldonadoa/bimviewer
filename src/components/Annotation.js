@@ -25,8 +25,9 @@ const TextDisplay = (props) => {
 };
 
 const Annotation = (props) => {
-  const date = props.date;
+  const date = props.date ? props.date.toLocaleString() : null;
   const replies = props.replies;
+  const final = props.final;
   const [name, setName] = React.useState(props.name);
   const [visible, setVisible] = React.useState(true);
   const [savedName, setSavedName] = React.useState(props.name);
@@ -40,11 +41,15 @@ const Annotation = (props) => {
   );
   const [specialty, setSpecialty] = React.useState(props.specialty);
   const [savedSpecialty, setSavedSpecialty] = React.useState(props.specialty);
-  const [editing, setEditing] = React.useState(!date);
+  const [editing, setEditing] = React.useState(!final);
   const [deleted, setDeleted] = React.useState(false);
   const [replying, setReplying] = React.useState(false);
   const [author, setAuthor] = React.useState("");
   const [comment, setComment] = React.useState("");
+
+  React.useEffect(() => {
+    props.onEdit(true);
+  }, [props]);
 
   const deleteAnnotation = () => {
     props.onDelete(props.id);
@@ -58,9 +63,15 @@ const Annotation = (props) => {
 
   const editAnnotation = () => {
     setEditing(true);
+    props.onEdit(true);
+  };
+
+  const flyTo = () => {
+    props.onFly(props.id);
   };
 
   const replyAnnotation = () => {
+    flyTo();
     setReplying(true);
   };
 
@@ -71,26 +82,33 @@ const Annotation = (props) => {
   };
 
   const saveReply = () => {
-    const date = new Date().toLocaleString();
+    const date = new Date();
+    setAuthor("");
+    setComment("");
     props.onReply(props.id, { author, comment, date });
   };
 
   const cancelEdit = () => {
     setEditing(false);
+    props.onEdit(false);
     setName(savedName);
     setDescription(savedDescription);
     setSpecialty(savedSpecialty);
     setResponsible(savedResponsible);
+    if (!savedName) {
+      deleteAnnotation();
+    }
   };
 
   const saveEdit = () => {
-    const date = new Date().toLocaleString();
+    const date = new Date();
     setEditing(false);
     setSavedName(name);
     setSavedDescription(description);
     setSavedResponsible(responsible);
     setSavedSpecialty(specialty);
     props.onSave(props.id, { name, description, responsible, specialty, date });
+    props.onEdit(false);
   };
 
   if (deleted) {
@@ -129,7 +147,6 @@ const Annotation = (props) => {
                 fullWidth
                 label="Responsable"
                 value={responsible}
-                required
               />
             </Grid>
 
@@ -140,7 +157,6 @@ const Annotation = (props) => {
                 fullWidth
                 label="Especialidad"
                 value={specialty}
-                required
               />
             </Grid>
 
@@ -151,7 +167,6 @@ const Annotation = (props) => {
                   disableElevation
                   variant="contained"
                   size="small"
-                  disabled={!responsible || !specialty}
                 >
                   Cancelar
                 </Button>
@@ -163,7 +178,7 @@ const Annotation = (props) => {
                   variant="contained"
                   size="small"
                   color="primary"
-                  disabled={!responsible || !specialty}
+                  disabled={!responsible || !specialty || !name || !description}
                 >
                   Guardar
                 </Button>
@@ -180,9 +195,20 @@ const Annotation = (props) => {
         <ListItem>
           <Grid justify="center" className="py-3" container spacing={2}>
             <Grid item xs={12}>
-              <Typography>
-                <strong>Información</strong>
-              </Typography>
+              <div className="d-flex">
+                <Typography>
+                  <strong>Información</strong>
+                </Typography>
+                <Button
+                  className="position-absolute mr-3"
+                  style={{ right: 0 }}
+                  size="small"
+                  color="primary"
+                  onClick={flyTo}
+                >
+                  Ver
+                </Button>
+              </div>
             </Grid>
             <Grid item xs={12}>
               <TextDisplay name="Fecha" value={date} />
@@ -200,17 +226,16 @@ const Annotation = (props) => {
               <TextDisplay name="Especialidad" value={specialty} />
             </Grid>
 
-            {replies.length > 0 ? (
-              <Grid item xs={12}>
-                <Typography>
-                  <strong>Respuestas</strong>
-                </Typography>
-              </Grid>
-            ) : null}
+            <Grid item xs={12}>
+              <Typography>
+                <strong>Comentarios</strong>
+              </Typography>
+            </Grid>
+
             {replies.map((reply, index) => (
               <Grid key={index} item xs={12}>
                 <TextDisplay
-                  name={`[${reply.date}] ${reply.author}`}
+                  name={`[${reply.date.toLocaleString()}] ${reply.author}`}
                   value={reply.comment}
                 />
               </Grid>
@@ -223,7 +248,6 @@ const Annotation = (props) => {
                 fullWidth
                 label="Autor"
                 value={author}
-                required
               />
             </Grid>
 
@@ -236,7 +260,6 @@ const Annotation = (props) => {
                 value={comment}
                 rows={4}
                 multiline
-                required
               />
             </Grid>
 
@@ -269,7 +292,7 @@ const Annotation = (props) => {
         <Divider />
       </React.Fragment>
     );
-  } else if (date) {
+  } else if (final) {
     return (
       <React.Fragment>
         <ListItem>

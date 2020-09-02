@@ -1,4 +1,5 @@
 import React from "react";
+import { v4 as uuidv4 } from "uuid";
 import { Viewer } from "@xeokit/xeokit-sdk/src/viewer/Viewer";
 import { GLTFLoaderPlugin } from "@xeokit/xeokit-sdk/src/plugins/GLTFLoaderPlugin/GLTFLoaderPlugin.js";
 import { NavCubePlugin } from "@xeokit/xeokit-sdk/src/plugins/NavCubePlugin/NavCubePlugin.js";
@@ -15,7 +16,7 @@ export default class Canvas extends React.Component {
     super(props);
     this.mounted = false;
     this.loading = 1;
-    this.modelName = props.modelName;
+    this.projectName = props.projectName;
     this.bcf = [];
     this.zoomRatio = 0.2;
 
@@ -37,7 +38,6 @@ export default class Canvas extends React.Component {
     this.openCanvasContextMenu = props.openCanvasContextMenu;
     this.closeCanvasContextMenu = props.closeCanvasContextMenu;
     this.signalMount = props.signalMount;
-    this.signalDownloadBcf = props.signalDownloadBcf;
   }
 
   setModelTracker(modelTracker) {
@@ -244,6 +244,7 @@ export default class Canvas extends React.Component {
           let selectionVisible = visible.filter((x) => selected.includes(x));
           let selectionXRayed = xrayed.filter((x) => selected.includes(x));
 
+          this.closeTreeContextMenu();
           this.openCanvasContextMenu(x, y, {
             visible: selectionVisible.length > selected.length / 2,
             xrayed: selectionXRayed.length > selected.length / 2,
@@ -378,22 +379,21 @@ export default class Canvas extends React.Component {
     // Create annotations on click
     //------------------------------------------------------------------------------------------------------------------
     const annotations = new AnnotationsPlugin(viewer, {
-      // Default HTML template for marker position
       markerHTML: "<div class='annotation-marker'>{{glyph}}</div>",
-
-      // Default HTML template for label
       labelHTML:
         "<div class='annotation-label'>" +
         "<div class='annotation-title'>{{title}}</div>" +
         "<div class='annotation-desc'>{{description}}</div></div>",
-
-      // Default values to insert into the marker and label templates
       values: {
         glyph: "X",
         title: "Sin título",
         description: "Sin descripción",
       },
     });
+    annotations.on("markerClicked", (annotation) => {
+      window.viewer.cameraFlight.flyTo(annotation.entity);
+    });
+
     this.annotations = annotations;
     scene.input.on(
       "mouseclicked",
@@ -420,13 +420,15 @@ export default class Canvas extends React.Component {
           });
 
           this.mouseCreateAnnotations = false;
-          this.props.signalNewAnnotation({
+          const annotationObj = {
+            guid: uuidv4(),
             id: id,
-            name: title,
-            description: desc,
+            name: "",
+            description: "",
             worldPos: annotation.worldPos,
             entity: annotation.entity.id,
-          });
+          };
+          this.props.signalNewAnnotation(annotationObj);
         }
       },
       this
@@ -490,7 +492,7 @@ export default class Canvas extends React.Component {
       const id = "annotation-" + this.annotationsCount++;
       const title = annotation.name;
       const desc = annotation.description;
-      const newAnnotation = this.annotations.createAnnotation({
+      this.annotations.createAnnotation({
         id: id,
         entity: scene.objects[annotation.entity],
         worldPos: [wp["0"], wp["1"], wp["2"]],
@@ -505,6 +507,7 @@ export default class Canvas extends React.Component {
       });
 
       const annotationObj = {
+        guid: annotation.guid,
         id: id,
         name: title,
         description: desc,
@@ -513,7 +516,8 @@ export default class Canvas extends React.Component {
         responsible: annotation.responsible,
         specialty: annotation.specialty,
         date: annotation.date,
-        replies: annotation.replies ? annotation.replies : [],
+        canvasPos: annotation.canvasPos,
+        replies: annotation.replies,
       };
       this.props.signalNewAnnotation(annotationObj);
       cache.push(annotationObj);
@@ -704,16 +708,24 @@ export default class Canvas extends React.Component {
     }
   }
 
-  lookAt() {
+  lookAt(id) {
     const viewer = window.viewer;
     const scene = viewer.scene;
-    const aabb = scene.getAABB(
-      this.modelTracker.getSelected().length > 0
-        ? this.modelTracker.getSelected()
-        : scene.visibleObjectIds
-    );
-    const pos = math.getAABB3Center(aabb, math.vec3());
-    viewer.cameraFlight.flyTo(pos);
+    if (id) {
+      const aabb = scene.getAABB(id);
+      viewer.cameraFlight.flyTo({
+        aabb: aabb,
+      });
+    } else {
+      const aabb = scene.getAABB(
+        this.modelTracker.getSelected().length > 0
+          ? this.modelTracker.getSelected()
+          : scene.visibleObjectIds
+      );
+      viewer.cameraFlight.flyTo({
+        aabb: aabb,
+      });
+    }
   }
 
   //----------------------------------------------------------------------------------------------------------------------
@@ -785,17 +797,11 @@ export default class Canvas extends React.Component {
 
     if (value === "") {
       const cameraControl = viewer.cameraControl;
-      const cameraFlight = viewer.cameraFlight;
       const scene = viewer.scene;
       scene.setObjectsVisible(scene.objectIds, true);
       cameraControl.navMode = "orbit";
       cameraControl.pivoting = true;
-      cameraFlight.flyTo({
-        eye: [-2.56, 8.38, 8.27],
-        look: [13.44, 3.31, -14.83],
-        up: [0.1, 0.98, -0.14],
-        projection: "perspective",
-      });
+      this.fitModel();
       this.sectionPlanes.setOverviewVisible(true);
       return;
     }
@@ -1074,7 +1080,6 @@ export default class Canvas extends React.Component {
   destroyAnnotation(id) {
     this.annotations.destroyAnnotation(id);
     var glyphsCount = 1;
-    console.log(this.annotations);
     Object.keys(this.annotations.annotations).forEach((annotationId) => {
       let annotation = this.annotations.annotations[annotationId];
       annotation.setField("glyph", glyphsCount++);
@@ -1101,27 +1106,37 @@ export default class Canvas extends React.Component {
       const img = window.viewer.getSnapshot();
       var a = document.createElement("a");
       a.href = img;
-      a.download = `${this.modelName}.png`;
+      a.download = `${this.projectName}.png`;
       a.click();
       onSuccess();
     } catch (error) {
-      console.log(error);
+      console.error(error);
       onError();
     }
   }
 
-  createBcf() {
+  createBcf(annotations) {
     const viewpoint = this.bcfViewpoints.getViewpoint({
       spacesVisible: true,
       spaceBoundariesVisible: false,
       openingsVisible: true,
     });
+
+    const comments = annotations.map((annotation) => {
+      return {
+        guid: annotation.guid,
+        date: annotation.date.toISOString(),
+        author: annotation.responsible,
+        comment: annotation.name + " - " + annotation.description,
+      };
+    });
+    viewpoint.comments = comments;
     return viewpoint;
   }
 
-  loadBcf(data, download) {
+  loadBcf(data) {
     this.clearAnnotations();
-    const annotations = this.loadAnnotations(
+    this.loadAnnotations(
       data.annotations.filter((x) => Boolean(x))
     );
 
@@ -1138,10 +1153,6 @@ export default class Canvas extends React.Component {
       rayCast: true,
       defaultInvisible: true,
     });
-
-    if (download) {
-      this.signalDownloadBcf(annotations);
-    }
   }
 
   clearAnnotations() {
@@ -1151,5 +1162,24 @@ export default class Canvas extends React.Component {
 
   setZoomRatio(value) {
     this.zoomRatio = value;
+  }
+
+  flyToAnnotation(id) {
+    const annotation = this.annotations.annotations[id];
+    window.viewer.cameraFlight.flyTo(annotation.entity);
+  }
+
+  getAnnotationsCanvasPosition(annotations) {
+    const finalAnnotations = [];
+    annotations.forEach((annotation) => {
+      const canvasAnnotation = this.annotations.annotations[annotation.id];
+      const finalAnnotation = {
+        ...annotation,
+        canvasPos: canvasAnnotation.canvasPos,
+        replies: [],
+      };
+      finalAnnotations.push(finalAnnotation);
+    });
+    return finalAnnotations;
   }
 }

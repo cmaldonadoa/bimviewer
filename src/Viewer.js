@@ -5,8 +5,11 @@ import Canvas from "./canvas/Canvas";
 import ModelTracker from "./canvas/ModelTracker";
 import CanvasContextMenu from "./gui/CanvasContextMenu";
 import jsPDF from "jspdf";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 import html2canvas from "html2canvas";
 import Alert from "./components/Alert";
+import { v4 as uuidv4 } from "uuid";
 
 export default class Viewer extends React.Component {
   constructor(props) {
@@ -14,7 +17,7 @@ export default class Viewer extends React.Component {
     this.state = {
       loading: false,
       currentModel: "",
-      modelName: "",
+      projectName: "",
       mounting: true,
       currentEntity: null,
       openTreeContextMenu: null,
@@ -30,7 +33,7 @@ export default class Viewer extends React.Component {
     };
     this.modelTracker = new ModelTracker();
     this.canvas = new Canvas({
-      modelName: props.match.params.hash,
+      projectName: props.match.params.hash,
       updateEntity: (id) => this.updateEntity(id),
       openTreeContextMenu: (node, x, y, element, state) =>
         this.openTreeContextMenu(node, x, y, element, state),
@@ -40,7 +43,6 @@ export default class Viewer extends React.Component {
       closeCanvasContextMenu: () => this.closeCanvasContextMenu(),
       signalNewAnnotation: (annotation) => this.addAnnotation(annotation),
       signalMount: () => this.signalMount(),
-      signalDownloadBcf: (annotations) => this.renderBcf(annotations),
     });
   }
 
@@ -58,7 +60,7 @@ export default class Viewer extends React.Component {
           this.setState({ loading: true });
         } else {
           let files = data.files;
-          this.setState({ modelName: data.project.replace(/\s/g, "_") });
+          this.setState({ projectName: data.project.replace(/\s/g, "_") });
           files.forEach((file) => {
             let url = {
               id: file.id,
@@ -258,6 +260,12 @@ export default class Viewer extends React.Component {
     this.canvas ? this.canvas.createAnnotations() : (() => {})();
   }
 
+  flyToAnnotation(index) {
+    const annotations = [...this.state.annotations];
+    const id = annotations[index].id;
+    this.canvas ? this.canvas.flyToAnnotation(id) : (() => {})();
+  }
+
   takeSnapshot() {
     const alert = Alert.toastInfo("Generando archivo");
     const onSuccess = () => {
@@ -278,9 +286,12 @@ export default class Viewer extends React.Component {
       : (() => {})();
   }
 
-  downloadExcel(id) {
+  downloadExcel(type, id) {
     const alert = Alert.toastInfo("Generando archivo");
-    var { hash } = this.props.match.params;
+    const { hash } = this.props.match.params;
+    const modelName = this.getModelsByType(type).find(
+      (model) => model.meta.id === id
+    ).meta.name;
 
     fetch(`https://bimapi.velociti.cl/dev_get_excel/${hash}/${id}`, {
       headers: {
@@ -294,7 +305,7 @@ export default class Viewer extends React.Component {
         var url = window.URL.createObjectURL(blob);
         var a = document.createElement("a");
         a.href = url;
-        a.download = `${this.state.modelName}.xlsx`;
+        a.download = `${modelName}.xlsx`;
         a.click();
         a.remove();
       })
@@ -428,90 +439,197 @@ export default class Viewer extends React.Component {
 
       alert.close();
       Alert.toastSuccess("Listo");
-      doc.save(this.state.modelName + ".pdf");
+      doc.save(this.state.projectName + ".pdf");
     } catch (error) {
       alert.close();
       Alert.toastError("Algo salió mal");
     }
   }
 
-  async downloadBcf(annotations) {
-    const alert = Alert.toastInfo("Generando archivo");
-    try {
-      const canvas = document.getElementById("canvas");
-      const annotationsMarkers = document.getElementsByClassName(
-        "annotation-marker"
-      );
+  async _createBcfPdf(index) {
+    const viewpoint = this.state.bcf[index];
+    const bcf = viewpoint.bcf;
+    const annotations = viewpoint.annotations;
 
-      var cwidth = canvas.width;
-      var cheight = canvas.height;
+    const canvasBase64 = bcf.snapshot.snapshot_data;
+    let width, height;
 
-      var doc = new jsPDF({
-        orientation: "l",
-        unit: "px",
-        format: [1.3333 * cwidth, 1.3333 * cheight],
+    const imgLoad = new Promise((resolve, reject) => {
+      let i = new Image();
+      i.onload = function () {
+        width = i.width * 0.75;
+        height = i.height * 0.75;
+        resolve();
+      };
+      i.src = canvasBase64;
+    });
+    await imgLoad;
+
+    const dim = { w: 1920 * 0.75, h: 938 * 0.75 };
+    const canvasDim = { w: ((dim.w * 2) / 3) * 0.75, h: dim.h * 0.75 };
+    const sideDim = { w: (dim.w / 3) * 0.75, h: dim.h * 0.75 };
+
+    const doc = new jsPDF({
+      orientation: "l",
+      unit: "px",
+      format: [dim.w, dim.h],
+    });
+
+    const ratio = Math.min(1, canvasDim.w / width, canvasDim.h / height);
+    const actualWidth = width * ratio;
+    const actualHeight = height * ratio;
+    doc.addImage(canvasBase64, "PNG", sideDim.w, 0, actualWidth, actualHeight);
+    doc.line(sideDim.w, 0, sideDim.w, dim.h * 0.75);
+
+    const dx = sideDim.w / 2;
+    const dy = (dim.h * 0.75 - actualHeight) / 2;
+    annotations.forEach((annotation, idx) => {
+      const pos = annotation.canvasPos;
+      const glyph = "" + (idx + 1);
+      const x = pos[0] * ratio * 0.75 + dx + actualWidth / 4;
+      const y = pos[1] * ratio * 0.75 - dy + (canvasDim.h - actualHeight) / 2;
+      doc.setLineWidth(1);
+      doc.setFillColor(0);
+      doc.circle(x, y, 6, "FD");
+      doc.setTextColor(1, 1, 1, 1);
+      doc.setFontSize(12);
+      doc.text(glyph, x - 2, y + 3);
+    });
+
+    /* Write annotations content */
+    var top = 0;
+    const left = 15;
+    const innerWidth = sideDim.w - 2 * left;
+
+    annotations.forEach((annotation, idx) => {
+      const glyph = "" + (idx + 1);
+      doc.setFontSize(16);
+      const title = glyph + ". " + annotation.name;
+      const tsize = doc.getTextDimensions(title);
+      const tsplit = doc.splitTextToSize(title, innerWidth);
+      const allContents = [
+        new Date(annotation.date).toLocaleString(),
+        `Responsable : ${annotation.responsible}`,
+        `Especialidad: ${annotation.specialty}`,
+        annotation.description,
+        ...annotation.replies.map(
+          (reply) =>
+            `[${new Date(reply.date).toLocaleString()}] ${reply.author}: ${
+              reply.comment
+            }`
+        ),
+      ];
+
+      // Precalculate height
+      let blockHeight = tsize.h * tsplit.length + 5;
+      doc.setFontSize(12);
+      allContents.forEach((content) => {
+        const size = doc.getTextDimensions(content);
+        const split = doc.splitTextToSize(content, innerWidth);
+        blockHeight += size.h * split.length + 5;
       });
 
-      /* Draw canvas */
-      doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, cwidth, cheight); // Draw model;
-
-      var annotationsCount = 0;
-      for (let element of annotationsMarkers) {
-        let canvasPos = annotations[annotationsCount++].canvasPos;
-        //let rect = element.getBoundingClientRect();
-        let left = canvasPos[0];
-        let top = canvasPos[1];
-        await html2canvas(element, {
-          backgroundColor: "rgba(0,0,0,0)",
-        }).then((canvasElement) => {
-          let width = canvasElement.width;
-          let height = canvasElement.height;
-          doc.addImage(
-            canvasElement.toDataURL("image/png"),
-            "PNG",
-            left,
-            top,
-            width,
-            height
-          );
+      if (top + blockHeight >= sideDim.h) {
+        doc.addPage();
+        top = 0;
+        doc.addImage(
+          canvasBase64,
+          "PNG",
+          sideDim.w,
+          0,
+          actualWidth,
+          actualHeight
+        );
+        doc.line(sideDim.w, 0, sideDim.w, dim.h * 0.75);
+        annotations.forEach((annotation, idx) => {
+          const pos = annotation.canvasPos;
+          const glyph = "" + (idx + 1);
+          const x = pos[0] * ratio * 0.75 + dx + actualWidth / 4;
+          const y =
+            pos[1] * ratio * 0.75 - dy + (canvasDim.h - actualHeight) / 2;
+          doc.setLineWidth(1);
+          doc.setFillColor(0);
+          doc.circle(x, y, 6, "FD");
+          doc.setTextColor(1, 1, 1, 1);
+          doc.setFontSize(12);
+          doc.text(glyph, x - 2, y + 3);
         });
       }
 
-      /* Write annotations content */
-      doc.addPage();
-      var top = 40;
-      const left = 20;
-      const innerWidth = cwidth - 20 - 20;
+      // Write content
+      doc.setTextColor(0);
+      doc.line(0, top, sideDim.w, top);
+      top += 20;
+      doc.setFontSize(16);
+      doc.text(tsplit, left, top);
+      top += tsize.h * tsplit.length + 5;
 
-      doc.setFontSize(24);
-      doc.text("Observaciones", left, top);
-      top += 40;
+      doc.setFontSize(12);
+      allContents.forEach((content) => {
+        const size = doc.getTextDimensions(content);
+        const split = doc.splitTextToSize(content, innerWidth);
+        doc.text(split, left, top);
+        top += size.h * split.length + 5;
+      });
+    });
 
-      var number = 1;
-      for (let element of annotations) {
-        doc.setFontSize(20);
-        let title = number++ + ". " + element.name;
-        let tsize = doc.getTextDimensions(title);
-        let tsplit = doc.splitTextToSize(title, innerWidth);
-        doc.text(tsplit, left, top);
-        top += tsize.h * tsplit.length;
+    return doc;
+  }
 
-        doc.setFontSize(16);
-        let bsize = doc.getTextDimensions(element.description);
-        let bsplit = doc.splitTextToSize(element.description, innerWidth);
-        doc.text(bsplit, left, top);
-        top += bsize.h * bsplit.length;
-
-        doc.line(0, top, 1.3333 * cwidth, top);
-        top += 40;
-      }
-
+  async downloadBcf(index, name) {
+    const alert = Alert.toastInfo("Generando archivo");
+    try {
+      const doc = await this._createBcfPdf(index);
+      doc.save(name + ".pdf");
       alert.close();
       Alert.toastSuccess("Listo");
-      doc.save(this.state.modelName + ".pdf");
     } catch (error) {
       alert.close();
       Alert.toastError("Algo salió mal");
+    }
+  }
+
+  async downloadAllBcf() {
+    const _getBcfId = (index) => {
+      let num = "" + (index + 1);
+      while (num.length < 4) num = "0" + num;
+      return "OBS-" + num;
+    };
+
+    const alert = Alert.toastInfo("Generando archivo");
+    let zip = new JSZip();
+    const viewpoints = this.state.bcf;
+    let error = false;
+    let index = 0;
+    for (const viewpoint of viewpoints) {
+      if (viewpoint && !error) {
+        try {
+          const doc = await this._createBcfPdf(index);
+          zip.file(`pdf/${_getBcfId(index)}.pdf`, doc.output("blob"));
+          const json = JSON.stringify(viewpoint.bcf);
+          zip.file(`json/${_getBcfId(index)}.json`, json);
+        } catch (err) {
+          alert.close();
+          error = true;
+          Alert.toastError("Algo salió mal");
+          break;
+        }
+      }
+      index++;
+    }
+
+    if (!error) {
+      zip
+        .generateAsync({ type: "blob" })
+        .then((content) => {
+          alert.close();
+          Alert.toastSuccess("Listo");
+          saveAs(content, this.state.projectName + ".zip");
+        })
+        .catch((error) => {
+          alert.close();
+          Alert.toastError("Algo salió mal");
+        });
     }
   }
 
@@ -541,14 +659,12 @@ export default class Viewer extends React.Component {
     const annotation = annotations[index];
     const id = annotation.id;
     const newAnnotation = {
-      id: id,
-      name: name,
-      description: description,
-      worldPos: annotation.worldPos,
-      entity: annotation.entity,
-      responsible: responsible,
-      specialty: specialty,
-      date: date,
+      ...annotation,
+      name,
+      description,
+      responsible,
+      specialty,
+      date,
     };
     annotations[index] = newAnnotation;
     this.canvas
@@ -562,15 +678,28 @@ export default class Viewer extends React.Component {
   saveReply(index, data) {
     const { hash } = this.props.match.params;
     const { author, comment, date } = data;
-    const annotations = [...this.state.annotations];
+    let annotations = [...this.state.annotations];
     const annotation = annotations[index];
     const replies = annotation.replies;
+    const newReply = { guid: uuidv4(), author, comment, date };
     const newAnnotation = {
       ...annotation,
-      replies: [...replies, { author, comment, date }],
+      replies: [...replies, newReply],
     };
     annotations[index] = newAnnotation;
     const bcf = this.state.bcf[this.state.currentBcf];
+    const comments = [
+      ...bcf.bcf.comments,
+      {
+        guid: newReply.guid,
+        date: newReply.date.toISOString(),
+        author: newReply.author,
+        comment: newReply.comment,
+        reply_to_comment_guid: annotation.guid,
+      },
+    ];
+
+    bcf.bcf.comments = comments;
     bcf.annotations = annotations;
 
     const bcfs = this.state.bcf;
@@ -611,8 +740,10 @@ export default class Viewer extends React.Component {
   saveBcf() {
     const alert = Alert.toastInfo("Guardando...");
     const { hash } = this.props.match.params;
-    const newBcf = this.canvas ? this.canvas.createBcf() : {};
-    const annotations = this.state.annotations;
+    const annotations = this.canvas.getAnnotationsCanvasPosition(
+      this.state.annotations
+    );
+    const newBcf = this.canvas ? this.canvas.createBcf(annotations) : {};
     const bcf = [...this.state.bcf, { bcf: newBcf, annotations: annotations }];
 
     this.setState({
@@ -660,10 +791,6 @@ export default class Viewer extends React.Component {
       .then((res) => res.json())
       .then((res) => console.log(res))
       .catch((err) => console.error(err));
-  }
-
-  renderBcf(annotations) {
-    this.downloadBcf(annotations);
   }
 
   clearBcf() {
@@ -728,7 +855,7 @@ export default class Viewer extends React.Component {
           }}
         />
         <Sidebar
-          project={this.state.modelName}
+          project={this.state.projectName}
           loading={this.state.mounting}
           metadata={this.modelTracker.getMetadata()}
           onClick={() => this.closeTreeContextMenu()}
@@ -758,9 +885,10 @@ export default class Viewer extends React.Component {
             destroyAnnotation: (index) => this.removeAnnotation(index),
             toggleAnnotation: (index) => this.toggleAnnotationVisibility(index),
             saveAnnotation: (index, data) => this.updateAnnotation(index, data),
+            flyToAnnotation: (index) => this.flyToAnnotation(index),
             saveReply: (index, data) => this.saveReply(index, data),
             takeSnapshot: () => this.takeSnapshot(),
-            downloadExcel: (id) => this.downloadExcel(id),
+            downloadExcel: (type, id) => this.downloadExcel(type, id),
             downloadPdf: () => this.downloadPdf(),
             showAll: () => this.showAll(),
             getModelMeta: (id) => this.getModelMeta(id),
@@ -768,7 +896,8 @@ export default class Viewer extends React.Component {
             saveBcf: () => this.saveBcf(),
             loadBcf: (index, download) => this.loadBcf(index, download),
             destroyBcf: (index) => this.destroyBcf(index),
-            downloadBcf: (index) => this.downloadBcf(index),
+            downloadBcf: (index, name) => this.downloadBcf(index, name),
+            downloadAllBcf: () => this.downloadAllBcf(),
           }}
         />
       </React.Fragment>

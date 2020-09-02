@@ -44,10 +44,11 @@ const StyledMenuItemButton = React.forwardRef((props, ref) => {
 const BCF = (props) => {
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [deleted, setDeleted] = React.useState(false);
-  const id = props.id;
+  const index = props.index;
   const img = props.img;
   const data = props.data;
   const name = props.name;
+  const id = props.id;
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -66,7 +67,7 @@ const BCF = (props) => {
         encodeURIComponent(JSON.stringify(data));
       var a = document.createElement("a");
       a.href = url;
-      a.download = `${name}_${getId()}.json`;
+      a.download = `${name}_${id}.json`;
       a.click();
       a.remove();
       alert.close();
@@ -78,7 +79,8 @@ const BCF = (props) => {
   };
 
   const downloadPdf = () => {
-    props.onSelect(id, true);
+    handleClose();
+    props.onDownload(index, `${name}_${id}`);
   };
 
   const deleteBcf = () => {
@@ -98,20 +100,14 @@ const BCF = (props) => {
 
     alert.fire().then((result) => {
       if (result.value) {
-        props.onDelete(id);
+        props.onDelete(index);
         setDeleted(true);
       }
     });
   };
 
   const setBcf = () => {
-    props.onSelect(id);
-  };
-
-  const getId = () => {
-    let num = "" + (id + 1);
-    while (num.length < 4) num = "0" + num;
-    return "OBS-" + num;
+    props.onSelect(index);
   };
 
   if (deleted) {
@@ -131,7 +127,7 @@ const BCF = (props) => {
               className="position-absolute p-3"
               style={{ left: 0, top: 0 }}
             >
-              {getId()}
+              {id}
             </Typography>
           </Grid>
           <Grid
